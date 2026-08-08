@@ -1,0 +1,28 @@
+{
+  "name": "obsidian-link-tree",
+  "version": "0.1.0",
+  "description": "A filesystem-like link and backlink hierarchy for Obsidian.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "bundle": "node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && npm run bundle"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "links",
+    "backlinks",
+    "navigation"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.5",
+    "obsidian": "latest",
+    "typescript": "^5.8.3"
+  }
+}
+
