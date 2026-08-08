@@ -1,10 +1,11 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, FuzzySuggestModal, PluginSettingTab, Setting, TFile } from "obsidian";
 
 import type LinkTreePlugin from "./main";
 
 export interface LinkTreeSettings {
   followActiveNote: boolean;
   maxDepth: number;
+  rootNotePath: string | null;
   showBacklinks: boolean;
   showOutgoingLinks: boolean;
 }
@@ -12,6 +13,7 @@ export interface LinkTreeSettings {
 export const DEFAULT_SETTINGS: LinkTreeSettings = {
   followActiveNote: true,
   maxDepth: 3,
+  rootNotePath: null,
   showBacklinks: true,
   showOutgoingLinks: true,
 };
@@ -29,8 +31,34 @@ export class LinkTreeSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     new Setting(containerEl)
+      .setName("Root note")
+      .setDesc(
+        this.plugin.rootFile === null
+          ? "No root is set. The tree follows the active note."
+          : `Current root: ${this.plugin.rootFile.path}`,
+      )
+      .addButton((button) =>
+        button.setButtonText("Choose note").onClick(() => {
+          new RootNoteModal(this.app, async (file) => {
+            await this.plugin.setRootFile(file);
+            this.display();
+          }).open();
+        }),
+      )
+      .addExtraButton((button) =>
+        button
+          .setIcon("x")
+          .setTooltip("Clear root note")
+          .setDisabled(this.plugin.rootFile === null)
+          .onClick(async () => {
+            await this.plugin.clearRootFile();
+            this.display();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName("Follow active note")
-      .setDesc("Update the tree whenever you open another note.")
+      .setDesc("Update the tree whenever you open another note when no root note is set.")
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.followActiveNote)
@@ -76,3 +104,24 @@ export class LinkTreeSettingTab extends PluginSettingTab {
   }
 }
 
+class RootNoteModal extends FuzzySuggestModal<TFile> {
+  constructor(
+    app: App,
+    private readonly onChoose: (file: TFile) => Promise<void>,
+  ) {
+    super(app);
+    this.setPlaceholder("Choose a root note");
+  }
+
+  getItems(): TFile[] {
+    return this.app.vault.getMarkdownFiles();
+  }
+
+  getItemText(file: TFile): string {
+    return file.path;
+  }
+
+  onChooseItem(file: TFile): void {
+    void this.onChoose(file);
+  }
+}

@@ -47,6 +47,25 @@ export default class LinkTreePlugin extends Plugin {
       name: "Refresh Link Tree",
       callback: () => this.refreshViews(),
     });
+    this.addCommand({
+      id: "set-current-note-as-root",
+      name: "Set current note as Link Tree root",
+      checkCallback: (checking) => {
+        const file = this.getActiveFile();
+        if (file === null) return false;
+        if (!checking) void this.setRootFile(file);
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "clear-root-note",
+      name: "Clear Link Tree root note",
+      checkCallback: (checking) => {
+        if (this.rootFile === null) return false;
+        if (!checking) void this.clearRootFile();
+        return true;
+      },
+    });
 
     this.registerEvent(
       this.app.workspace.on("file-open", () => {
@@ -56,8 +75,24 @@ export default class LinkTreePlugin extends Plugin {
     this.registerEvent(
       this.app.metadataCache.on("resolved", () => this.refreshViews()),
     );
-    this.registerEvent(this.app.vault.on("rename", () => this.refreshViews()));
-    this.registerEvent(this.app.vault.on("delete", () => this.refreshViews()));
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (file instanceof TFile && oldPath === this.settings.rootNotePath) {
+          void this.updateSettings({ rootNotePath: file.path });
+          return;
+        }
+        this.refreshViews();
+      }),
+    );
+    this.registerEvent(
+      this.app.vault.on("delete", (file) => {
+        if (file instanceof TFile && file.path === this.settings.rootNotePath) {
+          void this.clearRootFile();
+          return;
+        }
+        this.refreshViews();
+      }),
+    );
   }
 
   onunload(): void {
@@ -68,6 +103,20 @@ export default class LinkTreePlugin extends Plugin {
     this.settings = { ...this.settings, ...update };
     await this.saveData(this.settings);
     this.refreshViews();
+  }
+
+  get rootFile(): TFile | null {
+    if (this.settings.rootNotePath === null) return null;
+    const file = this.app.vault.getAbstractFileByPath(this.settings.rootNotePath);
+    return file instanceof TFile ? file : null;
+  }
+
+  async setRootFile(file: TFile): Promise<void> {
+    await this.updateSettings({ rootNotePath: file.path });
+  }
+
+  async clearRootFile(): Promise<void> {
+    await this.updateSettings({ rootNotePath: null });
   }
 
   async activateView(): Promise<void> {
@@ -104,8 +153,6 @@ export default class LinkTreePlugin extends Plugin {
 }
 
 class LinkTreeView extends ItemView {
-  private pinnedFile: TFile | null = null;
-
   constructor(
     leaf: WorkspaceLeaf,
     private readonly plugin: LinkTreePlugin,
@@ -130,7 +177,7 @@ class LinkTreeView extends ItemView {
   }
 
   refresh(): void {
-    const root = this.pinnedFile ?? this.plugin.getActiveFile();
+    const root = this.plugin.rootFile ?? this.plugin.getActiveFile();
     this.contentEl.empty();
     this.contentEl.addClass("link-tree");
     this.renderHeader(root);
@@ -158,15 +205,16 @@ class LinkTreeView extends ItemView {
     const actions = header.createDiv({ cls: "link-tree-actions" });
 
     this.createAction(actions, "refresh-cw", "Refresh tree", () => this.refresh());
-    this.createAction(
-      actions,
-      this.pinnedFile === null ? "pin" : "pin-off",
-      this.pinnedFile === null ? "Pin current note" : "Unpin tree root",
-      () => {
-        this.pinnedFile = this.pinnedFile === null ? root : null;
-        this.refresh();
-      },
-    );
+    if (this.plugin.rootFile === null && this.plugin.getActiveFile() !== null) {
+      this.createAction(actions, "pin", "Set current note as root", () => {
+        const activeFile = this.plugin.getActiveFile();
+        if (activeFile !== null) void this.plugin.setRootFile(activeFile);
+      });
+    } else if (this.plugin.rootFile !== null) {
+      this.createAction(actions, "pin-off", "Clear root note", () => {
+        void this.plugin.clearRootFile();
+      });
+    }
   }
 
   private createAction(
@@ -254,4 +302,3 @@ class LinkTreeView extends ItemView {
     }
   }
 }
-
