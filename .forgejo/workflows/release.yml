@@ -1,0 +1,98 @@
+name: Release plugin
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag matching manifest.json (for example, 0.1.0)"
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: docker
+
+    steps:
+      - name: Check out source
+        uses: https://data.forgejo.org/actions/checkout@v6
+
+      - name: Use the repository Node.js version
+        uses: https://data.forgejo.org/actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify and package
+        run: npm run check
+
+      - name: Verify release package
+        run: |
+          test -f dist/link-tree/main.js
+          test -f dist/link-tree/manifest.json
+          test -f dist/link-tree/styles.css
+          test "$(find dist/link-tree -maxdepth 1 -type f | wc -l)" -eq 3
+
+      - name: Resolve the release tag
+        id: release
+        env:
+          EVENT_NAME: ${{ forgejo.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag="$FORGEJO_REF_NAME"
+          fi
+
+          echo "tag=$tag" >> "$FORGEJO_OUTPUT"
+
+      - name: Verify the release version
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          version="$(node --input-type=module -e 'import packageJson from "./package.json" with { type: "json" }; import manifest from "./manifest.json" with { type: "json" }; import versions from "./versions.json" with { type: "json" }; if (packageJson.version !== manifest.version || versions[manifest.version] !== manifest.minAppVersion) { throw new Error("package.json, manifest.json, and versions.json must describe the same release") }; process.stdout.write(manifest.version)')"
+          if [ "$TAG" != "$version" ] && [ "$TAG" != "v$version" ]; then
+            echo "Release tag $TAG must match manifest version $version (optionally prefixed with v)." >&2
+            exit 1
+          fi
+
+      - name: Create a tag for a manual release
+        if: forgejo.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          git config user.name "forgejo-actions[bot]"
+          git config user.email "forgejo-actions[bot]@users.noreply.local"
+          git tag --annotate "$TAG" --message "Release $TAG" "$FORGEJO_SHA"
+          git push origin "refs/tags/$TAG"
+
+      - name: Publish Forgejo release
+        uses: https://code.forgejo.org/actions/forgejo-release@v2.13.1
+        with:
+          direction: upload
+          release-dir: dist/link-tree
+          tag: ${{ steps.release.outputs.tag }}
+          sha: ${{ forgejo.sha }}
+          title: Link Tree ${{ steps.release.outputs.tag }}
+
+      - name: Mirror the release to GitHub
+        env:
+          GITHUB_PUSH_TOKEN: ${{ secrets.GITHUB_PUSH_TOKEN }}
+          GITHUB_TARGET_REPOSITORY: bolducke/obsidian-link-tree
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if [ -z "$GITHUB_PUSH_TOKEN" ]; then
+            echo "Missing GITHUB_PUSH_TOKEN Forgejo Actions secret." >&2
+            exit 1
+          fi
+
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          git remote add github "https://x-access-token:${GITHUB_PUSH_TOKEN}@github.com/${GITHUB_TARGET_REPOSITORY}.git"
+          git push github \
+            refs/remotes/origin/main:refs/heads/main \
+            "refs/tags/$TAG:refs/tags/$TAG"

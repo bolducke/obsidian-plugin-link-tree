@@ -1,0 +1,59 @@
+name: Release plugin
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Use the repository Node.js version
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify and package
+        run: npm run check
+
+      - name: Verify release package
+        run: |
+          test -f dist/link-tree/main.js
+          test -f dist/link-tree/manifest.json
+          test -f dist/link-tree/styles.css
+          test "$(find dist/link-tree -maxdepth 1 -type f | wc -l)" -eq 3
+
+      - name: Verify the release version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(node --input-type=module -e 'import packageJson from "./package.json" with { type: "json" }; import manifest from "./manifest.json" with { type: "json" }; import versions from "./versions.json" with { type: "json" }; if (packageJson.version !== manifest.version || versions[manifest.version] !== manifest.minAppVersion) { throw new Error("package.json, manifest.json, and versions.json must describe the same release") }; process.stdout.write(manifest.version)')"
+          if [ "$TAG" != "$version" ] && [ "$TAG" != "v$version" ]; then
+            echo "Release tag $TAG must match manifest version $version (optionally prefixed with v)." >&2
+            exit 1
+          fi
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            dist/link-tree/main.js \
+            dist/link-tree/manifest.json \
+            dist/link-tree/styles.css \
+            --title "Link Tree $TAG" \
+            --generate-notes
