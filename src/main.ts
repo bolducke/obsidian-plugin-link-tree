@@ -1,4 +1,4 @@
-import { Plugin, TFile } from "obsidian";
+import { type PaneType, Plugin, TFile } from "obsidian";
 
 import { LinkTreeService } from "./link-tree-service";
 import { LinkTreeView } from "./link-tree-view";
@@ -180,13 +180,18 @@ export default class LinkTreePlugin extends Plugin {
     await this.app.workspace.revealLeaf(leaf);
   }
 
-  async openFileFromTree(file: TFile): Promise<void> {
+  async openFileFromTree(file: TFile, paneType?: PaneType): Promise<void> {
     const token = this.treeNavigation.begin(file.path);
 
     try {
-      await this.app.workspace.getLeaf().openFile(file);
+      const leaf =
+        paneType === undefined
+          ? this.app.workspace.getLeaf()
+          : this.app.workspace.getLeaf(paneType);
+      await leaf.openFile(file);
     } finally {
       this.treeNavigation.finish(token);
+      this.refreshViews();
     }
   }
 

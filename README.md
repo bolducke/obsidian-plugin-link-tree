@@ -7,7 +7,7 @@ The tree starts at the active note by default. You can add any number of persist
 - **Links from this note**: notes linked by the root note and their linked descendants.
 - **Backlinks to this note**: notes that link to the root note and their backlink descendants.
 
-Repeated paths can be expanded to inspect recursive links. **Maximum recursion depth** limits only those repeated paths, preventing an infinite expansion while allowing ordinary note hierarchies to remain fully explorable. Clicking a note opens it in the current workspace without retargeting or collapsing the tree. When **Follow active note** is enabled, notes opened outside the tree still become its new root.
+Repeated paths can be expanded to inspect recursive links. A repeat icon marks every note that closes a loop to any earlier note on its current branch, including recursive notes that can still be expanded. **Maximum recursion depth** limits only those repeated paths, preventing an infinite expansion while allowing ordinary note hierarchies to remain fully explorable. Clicking a note opens it in the current workspace without retargeting or collapsing the tree. Right-clicking a note provides familiar file-explorer actions such as opening in another pane, renaming, moving, copying, and deleting. When **Follow active note** is enabled, notes opened outside the tree still become its new root.
 
 Outgoing note labels use the display text from aliased links such as `[[note|display name]]` and fall back to the filename for links without display text. Since a backlink's alias names its target rather than its source, backlink labels use the source filename.
 
