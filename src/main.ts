@@ -9,7 +9,7 @@ import {
 } from "./settings-model";
 import { LinkTreeSettingTab } from "./settings";
 import { TreeNavigationTracker } from "./tree-navigation-tracker";
-import type { LinkTreeDirection } from "./types";
+import type { LinkTreeDirection, RelatedFile } from "./types";
 
 export const VIEW_TYPE_LINK_TREE = "link-tree-view";
 
@@ -216,7 +216,7 @@ export default class LinkTreePlugin extends Plugin {
     return this.app.workspace.getActiveFile();
   }
 
-  getRelatedFiles(file: TFile, direction: LinkTreeDirection): TFile[] {
+  getRelatedFiles(file: TFile, direction: LinkTreeDirection): RelatedFile[] {
     return this.treeService.getRelatedFiles(file, direction);
   }
 

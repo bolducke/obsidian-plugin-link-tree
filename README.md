@@ -9,6 +9,8 @@ The tree starts at the active note by default. You can add any number of persist
 
 Repeated paths are detected and marked instead of being expanded forever. Clicking a note opens it in the current workspace without retargeting or collapsing the tree. When **Follow active note** is enabled, notes opened outside the tree still become its new root.
 
+Outgoing note labels use the display text from aliased links such as `[[note|display name]]` and fall back to the filename for links without display text. Since a backlink's alias names its target rather than its source, backlink labels use the source filename.
+
 When persistent roots are configured, the collapsed **Unlinked notes** section lists Markdown notes outside every root's connected link component. Connectivity follows resolved links in either direction across the complete graph, regardless of the sidebar's maximum display depth.
 
 ## Development
@@ -30,6 +32,7 @@ The plugin keeps Obsidian integration small and assigns each responsibility to
 one source module:
 
 - `src/main.ts` — plugin lifecycle, commands, event subscriptions, and wiring
+- `src/display-name.ts` — link display-text validation and filename fallback
 - `src/settings-model.ts` — persisted settings defaults and defensive loading
 - `src/root-note-modal.ts` — reusable root-note picker
 - `src/settings.ts` — settings UI

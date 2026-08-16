@@ -1,8 +1,9 @@
 import { App, TFile } from "obsidian";
 
+import { resolveDisplayName } from "./display-name";
 import { findUnlinkedNotePaths } from "./link-graph";
 import type { LinkTreeSettings } from "./settings-model";
-import type { LinkTreeDirection } from "./types";
+import type { LinkTreeDirection, RelatedFile } from "./types";
 
 /**
  * Queries Obsidian metadata and applies the plugin's file-ordering policy.
@@ -30,7 +31,7 @@ export class LinkTreeService {
       .filter((file): file is TFile => file !== null);
   }
 
-  getRelatedFiles(file: TFile, direction: LinkTreeDirection): TFile[] {
+  getRelatedFiles(file: TFile, direction: LinkTreeDirection): RelatedFile[] {
     const resolvedLinks = this.app.metadataCache.resolvedLinks;
     const relatedPaths =
       direction === "outgoing"
@@ -43,7 +44,14 @@ export class LinkTreeService {
     return relatedPaths
       .map((path) => this.app.vault.getAbstractFileByPath(path))
       .filter((entry): entry is TFile => entry instanceof TFile)
-      .sort((left, right) => this.compareFiles(left, right));
+      .map((relatedFile) => ({
+        displayName:
+          direction === "outgoing"
+            ? this.getOutgoingDisplayName(file, relatedFile)
+            : relatedFile.basename,
+        file: relatedFile,
+      }))
+      .sort((left, right) => this.compareRelatedFiles(left, right));
   }
 
   getUnlinkedFiles(roots: readonly TFile[]): TFile[] {
@@ -72,5 +80,34 @@ export class LinkTreeService {
       case "name":
         return left.basename.localeCompare(right.basename) || byPath();
     }
+  }
+
+  private compareRelatedFiles(left: RelatedFile, right: RelatedFile): number {
+    if (this.getSettings().sortOrder === "name") {
+      return (
+        left.displayName.localeCompare(right.displayName) ||
+        left.file.path.localeCompare(right.file.path)
+      );
+    }
+
+    return this.compareFiles(left.file, right.file);
+  }
+
+  private getOutgoingDisplayName(source: TFile, target: TFile): string {
+    const matchingLinks =
+      this.app.metadataCache
+        .getFileCache(source)
+        ?.links?.filter(
+          (link) =>
+            this.app.metadataCache.getFirstLinkpathDest(link.link, source.path)
+              ?.path === target.path,
+        ) ?? [];
+
+    const aliasedLink = matchingLinks.find(
+      (link) =>
+        typeof link.displayText === "string" &&
+        link.displayText.trim().length > 0,
+    );
+    return resolveDisplayName(target.basename, aliasedLink?.displayText);
   }
 }

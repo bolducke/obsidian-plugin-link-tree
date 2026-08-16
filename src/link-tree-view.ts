@@ -141,7 +141,7 @@ export class LinkTreeView extends ItemView {
   private renderRoot(root: TFile): void {
     const rootNode = this.contentEl.createDiv({ cls: "link-tree-root-node" });
     const rootEl = rootNode.createDiv({ cls: "link-tree-root" });
-    this.renderFileLabel(rootEl, root, "file", true);
+    this.renderFileLabel(rootEl, root, root.basename, "file", true);
     if (this.plugin.hasConfiguredRoots) {
       this.createAction(
         rootEl,
@@ -260,7 +260,7 @@ export class LinkTreeView extends ItemView {
 
     for (const file of files) {
       const row = container.createDiv({ cls: "link-tree-row" });
-      this.renderFileLabel(row, file, "file", true);
+      this.renderFileLabel(row, file, file.basename, "file", true);
     }
   }
 
@@ -271,17 +271,23 @@ export class LinkTreeView extends ItemView {
       return;
     }
 
-    for (const file of related) {
+    for (const { displayName, file } of related) {
       const nested = container.createDiv({ cls: "link-tree-node" });
       const isCycle = node.ancestors.has(file.path);
       const canExpand =
         !isCycle && node.depth + 1 < this.plugin.settings.maxDepth;
 
       if (canExpand) {
-        this.renderExpandableNode(nested, file, node);
+        this.renderExpandableNode(nested, file, displayName, node);
       } else {
         const row = nested.createDiv({ cls: "link-tree-row" });
-        this.renderFileLabel(row, file, isCycle ? "repeat-2" : "file", true);
+        this.renderFileLabel(
+          row,
+          file,
+          displayName,
+          isCycle ? "repeat-2" : "file",
+          true,
+        );
       }
     }
   }
@@ -289,12 +295,13 @@ export class LinkTreeView extends ItemView {
   private renderExpandableNode(
     container: HTMLElement,
     file: TFile,
+    displayName: string,
     parent: TreeNode,
   ): void {
     const nodeKey = this.getNodeKey(parent, file.path);
     const details = container.createEl("details");
     const summary = details.createEl("summary", { cls: "link-tree-row" });
-    this.renderFileLabel(summary, file, "chevron-right", true);
+    this.renderFileLabel(summary, file, displayName, "chevron-right", true);
 
     const childContainer = details.createDiv({ cls: "link-tree-children" });
     if (this.expansionState.isNodeExpanded(nodeKey)) {
@@ -334,6 +341,7 @@ export class LinkTreeView extends ItemView {
   private renderFileLabel(
     container: HTMLElement,
     file: TFile,
+    displayName: string,
     icon: string,
     clickable: boolean,
   ): void {
@@ -342,7 +350,7 @@ export class LinkTreeView extends ItemView {
 
     const label = container.createSpan({
       cls: "link-tree-file-name",
-      text: file.basename,
+      text: displayName,
     });
     label.setAttribute("title", file.path);
     if (!clickable) {
