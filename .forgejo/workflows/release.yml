@@ -40,7 +40,7 @@ jobs:
       - name: Resolve the release tag
         id: release
         env:
-          EVENT_NAME: ${{ forgejo.event_name }}
+          EVENT_NAME: ${{ github.event_name }}
           INPUT_TAG: ${{ inputs.tag }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -62,7 +62,7 @@ jobs:
           fi
 
       - name: Create a tag for a manual release
-        if: forgejo.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch'
         env:
           TAG: ${{ steps.release.outputs.tag }}
         run: |
@@ -77,7 +77,7 @@ jobs:
           direction: upload
           release-dir: dist/link-tree
           tag: ${{ steps.release.outputs.tag }}
-          sha: ${{ forgejo.sha }}
+          sha: ${{ github.sha }}
           title: Link Tree ${{ steps.release.outputs.tag }}
 
       - name: Mirror the release to GitHub
