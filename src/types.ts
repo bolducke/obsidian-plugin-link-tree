@@ -9,7 +9,8 @@ export interface RelatedFile {
 
 export interface TreeNode {
   readonly ancestors: ReadonlySet<string>;
-  readonly depth: number;
+  /** Number of repeated ancestors expanded on the current path. */
+  readonly recursionDepth: number;
   readonly direction: LinkTreeDirection;
   readonly file: TFile;
 }

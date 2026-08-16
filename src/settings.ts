@@ -29,8 +29,10 @@ export class LinkTreeSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Maximum depth")
-      .setDesc("How many levels of related notes to show below each branch.")
+      .setName("Maximum recursion depth")
+      .setDesc(
+        "How many repeated links to an ancestor can be expanded in one path.",
+      )
       .addSlider((slider) =>
         slider
           .setLimits(1, 8, 1)

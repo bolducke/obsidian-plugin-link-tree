@@ -26,7 +26,7 @@ export class LinkTreeView extends ItemView {
   }
 
   getIcon(): string {
-    return "git-fork";
+    return "git-fork-plus";
   }
 
   async onOpen(): Promise<void> {
@@ -211,7 +211,7 @@ export class LinkTreeView extends ItemView {
     const children = details.createDiv({ cls: "link-tree-children" });
     this.renderChildren(children, {
       ancestors: new Set([root.path]),
-      depth: 0,
+      recursionDepth: 0,
       direction,
       file: root,
     });
@@ -273,21 +273,27 @@ export class LinkTreeView extends ItemView {
 
     for (const { displayName, file } of related) {
       const nested = container.createDiv({ cls: "link-tree-node" });
-      const isCycle = node.ancestors.has(file.path);
+      const isRecursive = node.ancestors.has(file.path);
       const canExpand =
         file.extension === "md" &&
-        !isCycle &&
-        node.depth + 1 < this.plugin.settings.maxDepth;
+        (!isRecursive ||
+          node.recursionDepth < this.plugin.settings.maxDepth);
 
       if (canExpand) {
-        this.renderExpandableNode(nested, file, displayName, node);
+        this.renderExpandableNode(
+          nested,
+          file,
+          displayName,
+          node,
+          isRecursive,
+        );
       } else {
         const row = nested.createDiv({ cls: "link-tree-row" });
         this.renderFileLabel(
           row,
           file,
           displayName,
-          isCycle ? "repeat-2" : "file",
+          isRecursive ? "repeat-2" : "file",
           true,
         );
       }
@@ -299,6 +305,7 @@ export class LinkTreeView extends ItemView {
     file: TFile,
     displayName: string,
     parent: TreeNode,
+    isRecursive: boolean,
   ): void {
     const nodeKey = this.getNodeKey(parent, file.path);
     const details = container.createEl("details");
@@ -308,14 +315,14 @@ export class LinkTreeView extends ItemView {
     const childContainer = details.createDiv({ cls: "link-tree-children" });
     if (this.expansionState.isNodeExpanded(nodeKey)) {
       details.open = true;
-      this.renderNodeChildren(childContainer, file, parent);
+      this.renderNodeChildren(childContainer, file, parent, isRecursive);
     }
 
     details.addEventListener("toggle", () => {
       if (details.open) {
         this.expansionState.setNodeExpanded(nodeKey, true);
         if (childContainer.childElementCount === 0) {
-          this.renderNodeChildren(childContainer, file, parent);
+          this.renderNodeChildren(childContainer, file, parent, isRecursive);
         }
       } else {
         this.expansionState.setNodeExpanded(nodeKey, false);
@@ -327,10 +334,11 @@ export class LinkTreeView extends ItemView {
     container: HTMLElement,
     file: TFile,
     parent: TreeNode,
+    isRecursive: boolean,
   ): void {
     this.renderChildren(container, {
       ancestors: new Set([...parent.ancestors, file.path]),
-      depth: parent.depth + 1,
+      recursionDepth: parent.recursionDepth + (isRecursive ? 1 : 0),
       direction: parent.direction,
       file,
     });

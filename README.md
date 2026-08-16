@@ -7,11 +7,11 @@ The tree starts at the active note by default. You can add any number of persist
 - **Links from this note**: notes linked by the root note and their linked descendants.
 - **Backlinks to this note**: notes that link to the root note and their backlink descendants.
 
-Repeated paths are detected and marked instead of being expanded forever. Clicking a note opens it in the current workspace without retargeting or collapsing the tree. When **Follow active note** is enabled, notes opened outside the tree still become its new root.
+Repeated paths can be expanded to inspect recursive links. **Maximum recursion depth** limits only those repeated paths, preventing an infinite expansion while allowing ordinary note hierarchies to remain fully explorable. Clicking a note opens it in the current workspace without retargeting or collapsing the tree. When **Follow active note** is enabled, notes opened outside the tree still become its new root.
 
 Outgoing note labels use the display text from aliased links such as `[[note|display name]]` and fall back to the filename for links without display text. Since a backlink's alias names its target rather than its source, backlink labels use the source filename.
 
-When persistent roots are configured, the collapsed **Unlinked notes** section lists Markdown notes outside every root's connected link component. Connectivity follows resolved links in either direction across the complete graph, regardless of the sidebar's maximum display depth.
+When persistent roots are configured, the collapsed **Unlinked notes** section lists Markdown notes outside every root's connected link component. Connectivity follows resolved links in either direction across the complete graph, regardless of the sidebar's maximum recursion depth.
 
 ## Development
 
@@ -69,4 +69,4 @@ a version tag matching `manifest.json` (with or without a leading `v`).
 
 ## Current scope
 
-The plugin supplies the core browsing experience, a left-sidebar view, multiple persistent roots, an unlinked-notes section, refresh control, configurable depth, independent toggles for outgoing links and backlinks, and configurable branch sorting. Future enhancements could add aliases/tags and drag-and-drop relationships.
+The plugin supplies the core browsing experience, a left-sidebar view, multiple persistent roots, an unlinked-notes section, refresh control, configurable recursion depth, independent toggles for outgoing links and backlinks, and configurable branch sorting. Future enhancements could add aliases/tags and drag-and-drop relationships.

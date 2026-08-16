@@ -29,7 +29,7 @@ export default class LinkTreePlugin extends Plugin {
     this.addSettingTab(new LinkTreeSettingTab(this.app, this));
 
     this.addRibbonIcon(
-      "git-fork",
+      "git-fork-plus",
       "Open link tree",
       () => void this.activateView(),
     );
