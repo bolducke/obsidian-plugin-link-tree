@@ -276,8 +276,7 @@ export class LinkTreeView extends ItemView {
       const isRecursive = node.ancestors.has(file.path);
       const canExpand =
         file.extension === "md" &&
-        (!isRecursive ||
-          node.recursionDepth < this.plugin.settings.maxDepth);
+        (!isRecursive || node.recursionDepth < this.plugin.settings.maxDepth);
 
       if (canExpand) {
         this.renderExpandableNode(
