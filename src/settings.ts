@@ -22,35 +22,58 @@ export class LinkTreeSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     new Setting(containerEl)
-      .setName("Root note")
+      .setName("Root notes")
       .setDesc(
-        this.plugin.rootFile === null
-          ? "No root is set. The tree follows the active note."
-          : `Current root: ${this.plugin.rootFile.path}`,
+        this.plugin.hasConfiguredRoots
+          ? "Each selected note is shown as a separate root."
+          : "No roots are set. The tree follows the active note.",
       )
       .addButton((button) =>
-        button.setButtonText("Choose note").onClick(() => {
-          new RootNoteModal(this.app, async (file) => {
-            await this.plugin.setRootFile(file);
-            this.display();
-          }).open();
+        button.setButtonText("Add note").onClick(() => {
+          new RootNoteModal(
+            this.app,
+            async (file) => {
+              await this.plugin.addRootFile(file);
+              this.display();
+            },
+            this.plugin.settings.rootNotePaths,
+          ).open();
         }),
       )
       .addExtraButton((button) =>
         button
           .setIcon("x")
-          .setTooltip("Clear root note")
-          .setDisabled(this.plugin.rootFile === null)
+          .setTooltip("Clear all root notes")
+          .setDisabled(!this.plugin.hasConfiguredRoots)
           .onClick(async () => {
-            await this.plugin.clearRootFile();
+            await this.plugin.clearRootFiles();
             this.display();
           }),
       );
 
+    const rootFilesByPath = new Map(
+      this.plugin.rootFiles.map((file) => [file.path, file]),
+    );
+    for (const path of this.plugin.settings.rootNotePaths) {
+      const file = rootFilesByPath.get(path);
+      new Setting(containerEl)
+        .setName(file?.basename ?? "Missing note")
+        .setDesc(path)
+        .addExtraButton((button) =>
+          button
+            .setIcon("trash-2")
+            .setTooltip("Remove root note")
+            .onClick(async () => {
+              await this.plugin.removeRootFile(path);
+              this.display();
+            }),
+        );
+    }
+
     new Setting(containerEl)
       .setName("Follow active note")
       .setDesc(
-        "Update the tree whenever you open another note when no root note is set.",
+        "Update the tree whenever you open another note when no root notes are set.",
       )
       .addToggle((toggle) =>
         toggle
@@ -117,13 +140,17 @@ class RootNoteModal extends FuzzySuggestModal<TFile> {
   constructor(
     app: App,
     private readonly onChoose: (file: TFile) => Promise<void>,
+    private readonly excludedPaths: readonly string[],
   ) {
     super(app);
     this.setPlaceholder("Choose a root note");
   }
 
   getItems(): TFile[] {
-    return this.app.vault.getMarkdownFiles();
+    const excludedPaths = new Set(this.excludedPaths);
+    return this.app.vault
+      .getMarkdownFiles()
+      .filter((file) => !excludedPaths.has(file.path));
   }
 
   getItemText(file: TFile): string {

@@ -45,27 +45,31 @@ export default class LinkTreePlugin extends Plugin {
     });
     this.addCommand({
       id: "set-current-note-as-root",
-      name: "Set current note as root",
+      name: "Add current note as root",
       checkCallback: (checking) => {
         const file = this.getActiveFile();
-        if (file === null) {
+        if (
+          file === null ||
+          file.extension !== "md" ||
+          this.settings.rootNotePaths.includes(file.path)
+        ) {
           return false;
         }
         if (!checking) {
-          void this.setRootFile(file);
+          void this.addRootFile(file);
         }
         return true;
       },
     });
     this.addCommand({
       id: "clear-root-note",
-      name: "Clear root note",
+      name: "Clear all root notes",
       checkCallback: (checking) => {
-        if (this.rootFile === null) {
+        if (!this.hasConfiguredRoots) {
           return false;
         }
         if (!checking) {
-          void this.clearRootFile();
+          void this.clearRootFiles();
         }
         return true;
       },
@@ -79,7 +83,8 @@ export default class LinkTreePlugin extends Plugin {
 
         if (
           file !== null &&
-          this.rootFile === null &&
+          file.extension === "md" &&
+          !this.hasConfiguredRoots &&
           this.settings.followActiveNote
         ) {
           this.followFileInViews(file);
@@ -91,8 +96,20 @@ export default class LinkTreePlugin extends Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (file instanceof TFile && oldPath === this.settings.rootNotePath) {
-          void this.updateSettings({ rootNotePath: file.path });
+        if (
+          file instanceof TFile &&
+          this.settings.rootNotePaths.includes(oldPath)
+        ) {
+          void this.updateSettings({
+            rootNotePaths:
+              file.extension === "md"
+                ? this.settings.rootNotePaths.map((path) =>
+                    path === oldPath ? file.path : path,
+                  )
+                : this.settings.rootNotePaths.filter(
+                    (path) => path !== oldPath,
+                  ),
+          });
           return;
         }
         this.refreshViews();
@@ -100,8 +117,11 @@ export default class LinkTreePlugin extends Plugin {
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof TFile && file.path === this.settings.rootNotePath) {
-          void this.clearRootFile();
+        if (
+          file instanceof TFile &&
+          this.settings.rootNotePaths.includes(file.path)
+        ) {
+          void this.removeRootFile(file.path);
           return;
         }
         this.refreshViews();
@@ -115,16 +135,39 @@ export default class LinkTreePlugin extends Plugin {
     this.refreshViews();
   }
 
-  get rootFile(): TFile | null {
-    return this.treeService.getFileAtPath(this.settings.rootNotePath);
+  get rootFiles(): TFile[] {
+    return this.treeService
+      .getFilesAtPaths(this.settings.rootNotePaths)
+      .filter((file) => file.extension === "md");
   }
 
-  async setRootFile(file: TFile): Promise<void> {
-    await this.updateSettings({ rootNotePath: file.path });
+  get hasConfiguredRoots(): boolean {
+    return this.settings.rootNotePaths.length > 0;
   }
 
-  async clearRootFile(): Promise<void> {
-    await this.updateSettings({ rootNotePath: null });
+  async addRootFile(file: TFile): Promise<void> {
+    if (
+      file.extension !== "md" ||
+      this.settings.rootNotePaths.includes(file.path)
+    ) {
+      return;
+    }
+
+    await this.updateSettings({
+      rootNotePaths: [...this.settings.rootNotePaths, file.path],
+    });
+  }
+
+  async removeRootFile(path: string): Promise<void> {
+    await this.updateSettings({
+      rootNotePaths: this.settings.rootNotePaths.filter(
+        (rootPath) => rootPath !== path,
+      ),
+    });
+  }
+
+  async clearRootFiles(): Promise<void> {
+    await this.updateSettings({ rootNotePaths: [] });
   }
 
   async activateView(): Promise<void> {
@@ -175,5 +218,9 @@ export default class LinkTreePlugin extends Plugin {
 
   getRelatedFiles(file: TFile, direction: LinkTreeDirection): TFile[] {
     return this.treeService.getRelatedFiles(file, direction);
+  }
+
+  getUnlinkedFiles(roots: readonly TFile[]): TFile[] {
+    return this.treeService.getUnlinkedFiles(roots);
   }
 }

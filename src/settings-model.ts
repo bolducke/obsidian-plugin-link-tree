@@ -3,7 +3,7 @@ export type LinkTreeSortOrder = "name" | "modified" | "created";
 export interface LinkTreeSettings {
   followActiveNote: boolean;
   maxDepth: number;
-  rootNotePath: string | null;
+  rootNotePaths: string[];
   showBacklinks: boolean;
   showOutgoingLinks: boolean;
   sortOrder: LinkTreeSortOrder;
@@ -12,7 +12,7 @@ export interface LinkTreeSettings {
 export const DEFAULT_SETTINGS: LinkTreeSettings = {
   followActiveNote: true,
   maxDepth: 3,
-  rootNotePath: null,
+  rootNotePaths: [],
   showBacklinks: true,
   showOutgoingLinks: true,
   sortOrder: "name",
@@ -34,7 +34,7 @@ export function normalizeSettings(value: unknown): LinkTreeSettings {
       DEFAULT_SETTINGS.followActiveNote,
     ),
     maxDepth: readDepth(stored.maxDepth),
-    rootNotePath: readRootNotePath(stored.rootNotePath),
+    rootNotePaths: readRootNotePaths(stored),
     showBacklinks: readBoolean(
       stored.showBacklinks,
       DEFAULT_SETTINGS.showBacklinks,
@@ -63,8 +63,22 @@ function readDepth(value: unknown): number {
   return Math.min(MAX_TREE_DEPTH, Math.max(MIN_TREE_DEPTH, Math.round(value)));
 }
 
-function readRootNotePath(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
+function readRootNotePaths(stored: Record<string, unknown>): string[] {
+  if (Array.isArray(stored.rootNotePaths)) {
+    return [
+      ...new Set(
+        stored.rootNotePaths.filter(
+          (path): path is string => typeof path === "string" && path.length > 0,
+        ),
+      ),
+    ];
+  }
+
+  // Migrate settings written by versions that supported one configured root.
+  return typeof stored.rootNotePath === "string" &&
+    stored.rootNotePath.length > 0
+    ? [stored.rootNotePath]
+    : [];
 }
 
 function readSortOrder(value: unknown): LinkTreeSortOrder {

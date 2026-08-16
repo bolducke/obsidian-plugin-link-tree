@@ -2,12 +2,14 @@
 
 Link Tree is an Obsidian community-plugin project that presents note links as a familiar, filesystem-like hierarchy in the left sidebar.
 
-The tree starts at the active note by default. You can choose any note as a persistent root from the plugin settings, the sidebar's pin action, or the **Set current note as root** command. It then has two expandable branches:
+The tree starts at the active note by default. You can add any number of persistent roots from the plugin settings, the sidebar's pin action, or the **Add current note as root** command. Each root has two expandable branches:
 
 - **Links from this note**: notes linked by the root note and their linked descendants.
 - **Backlinks to this note**: notes that link to the root note and their backlink descendants.
 
 Repeated paths are detected and marked instead of being expanded forever. Clicking a note opens it in the current workspace without retargeting or collapsing the tree. When **Follow active note** is enabled, notes opened outside the tree still become its new root.
+
+When persistent roots are configured, the collapsed **Unlinked notes** section lists Markdown notes outside every root's connected link component. Connectivity follows resolved links in either direction across the complete graph, regardless of the sidebar's maximum display depth.
 
 ## Development
 
@@ -30,8 +32,11 @@ one source module:
 - `src/main.ts` — plugin lifecycle, commands, event subscriptions, and wiring
 - `src/settings-model.ts` — persisted settings defaults and defensive loading
 - `src/settings.ts` — settings UI and root-note picker
+- `src/link-graph.ts` — root-component traversal and unlinked-note detection
 - `src/link-tree-service.ts` — metadata queries and file ordering
 - `src/link-tree-view.ts` — sidebar rendering and interactions
+- `src/tree-expansion-state.ts` — expanded branch and node state
+- `src/tree-navigation-tracker.ts` — navigation-origin tracking
 - `src/types.ts` — shared tree-domain types
 
 ## Release
@@ -60,4 +65,4 @@ a version tag matching `manifest.json` (with or without a leading `v`).
 
 ## Current scope
 
-The first version supplies the core browsing experience, a left-sidebar view, a persistent configurable root, refresh control, configurable depth, independent toggles for outgoing links and backlinks, and configurable branch sorting. Future enhancements could add aliases/tags and drag-and-drop relationships.
+The plugin supplies the core browsing experience, a left-sidebar view, multiple persistent roots, an unlinked-notes section, refresh control, configurable depth, independent toggles for outgoing links and backlinks, and configurable branch sorting. Future enhancements could add aliases/tags and drag-and-drop relationships.

@@ -1,5 +1,6 @@
 import { App, TFile } from "obsidian";
 
+import { findUnlinkedNotePaths } from "./link-graph";
 import type { LinkTreeSettings } from "./settings-model";
 import type { LinkTreeDirection } from "./types";
 
@@ -23,6 +24,12 @@ export class LinkTreeService {
     return file instanceof TFile ? file : null;
   }
 
+  getFilesAtPaths(paths: readonly string[]): TFile[] {
+    return paths
+      .map((path) => this.getFileAtPath(path))
+      .filter((file): file is TFile => file !== null);
+  }
+
   getRelatedFiles(file: TFile, direction: LinkTreeDirection): TFile[] {
     const resolvedLinks = this.app.metadataCache.resolvedLinks;
     const relatedPaths =
@@ -36,6 +43,21 @@ export class LinkTreeService {
     return relatedPaths
       .map((path) => this.app.vault.getAbstractFileByPath(path))
       .filter((entry): entry is TFile => entry instanceof TFile)
+      .sort((left, right) => this.compareFiles(left, right));
+  }
+
+  getUnlinkedFiles(roots: readonly TFile[]): TFile[] {
+    const markdownFiles = this.app.vault.getMarkdownFiles();
+    const unlinkedPaths = new Set(
+      findUnlinkedNotePaths(
+        markdownFiles.map((file) => file.path),
+        this.app.metadataCache.resolvedLinks,
+        roots.map((file) => file.path),
+      ),
+    );
+
+    return markdownFiles
+      .filter((file) => unlinkedPaths.has(file.path))
       .sort((left, right) => this.compareFiles(left, right));
   }
 

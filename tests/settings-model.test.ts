@@ -10,6 +10,7 @@ describe("normalizeSettings", () => {
       normalizeSettings({
         followActiveNote: "yes",
         maxDepth: Number.NaN,
+        rootNotePaths: "Projects/Home.md",
         rootNotePath: 7,
         showBacklinks: null,
         showOutgoingLinks: "true",
@@ -23,7 +24,7 @@ describe("normalizeSettings", () => {
       normalizeSettings({
         followActiveNote: false,
         maxDepth: 5,
-        rootNotePath: "Projects/Home.md",
+        rootNotePaths: ["Projects/Home.md", "Areas/Work.md"],
         showBacklinks: false,
         showOutgoingLinks: false,
         sortOrder: "modified",
@@ -31,11 +32,31 @@ describe("normalizeSettings", () => {
     ).toEqual({
       followActiveNote: false,
       maxDepth: 5,
-      rootNotePath: "Projects/Home.md",
+      rootNotePaths: ["Projects/Home.md", "Areas/Work.md"],
       showBacklinks: false,
       showOutgoingLinks: false,
       sortOrder: "modified",
     });
+  });
+
+  it("deduplicates root paths and ignores invalid entries", () => {
+    expect(
+      normalizeSettings({
+        rootNotePaths: [
+          "Projects/Home.md",
+          null,
+          "",
+          "Projects/Home.md",
+          "Areas/Work.md",
+        ],
+      }).rootNotePaths,
+    ).toEqual(["Projects/Home.md", "Areas/Work.md"]);
+  });
+
+  it("migrates the legacy single-root setting", () => {
+    expect(
+      normalizeSettings({ rootNotePath: "Projects/Home.md" }).rootNotePaths,
+    ).toEqual(["Projects/Home.md"]);
   });
 
   it("rounds and bounds a persisted maximum depth", () => {

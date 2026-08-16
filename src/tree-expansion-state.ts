@@ -1,30 +1,25 @@
-import type { LinkTreeDirection } from "./types";
-
 export class TreeExpansionState {
-  private readonly collapsedBranches = new Set<LinkTreeDirection>();
+  private readonly branchStates = new Map<string, boolean>();
   private readonly expandedNodes = new Set<string>();
-  private rootPath: string | null = null;
+  private rootsKey = "[]";
 
-  prepareForRoot(rootPath: string | null): void {
-    if (rootPath === this.rootPath) {
+  prepareForRoots(rootPaths: readonly string[]): void {
+    const rootsKey = JSON.stringify(rootPaths);
+    if (rootsKey === this.rootsKey) {
       return;
     }
 
-    this.rootPath = rootPath;
-    this.collapsedBranches.clear();
+    this.rootsKey = rootsKey;
+    this.branchStates.clear();
     this.expandedNodes.clear();
   }
 
-  isBranchExpanded(direction: LinkTreeDirection): boolean {
-    return !this.collapsedBranches.has(direction);
+  isBranchExpanded(key: string, defaultExpanded = true): boolean {
+    return this.branchStates.get(key) ?? defaultExpanded;
   }
 
-  setBranchExpanded(direction: LinkTreeDirection, expanded: boolean): void {
-    if (expanded) {
-      this.collapsedBranches.delete(direction);
-    } else {
-      this.collapsedBranches.add(direction);
-    }
+  setBranchExpanded(key: string, expanded: boolean): void {
+    this.branchStates.set(key, expanded);
   }
 
   isNodeExpanded(key: string): boolean {

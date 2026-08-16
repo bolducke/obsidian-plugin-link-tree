@@ -7,7 +7,7 @@ import type { LinkTreeDirection, TreeNode } from "./types";
 export class LinkTreeView extends ItemView {
   private displayedRootPath: string | null = null;
   private readonly expansionState = new TreeExpansionState();
-  private hadConfiguredRoot = false;
+  private hadConfiguredRoots = false;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -38,14 +38,18 @@ export class LinkTreeView extends ItemView {
   }
 
   refresh(): void {
-    const root = this.resolveRoot();
-    this.expansionState.prepareForRoot(root?.path ?? null);
+    const roots = this.resolveRoots();
+    this.expansionState.prepareForRoots(
+      this.plugin.hasConfiguredRoots
+        ? this.plugin.settings.rootNotePaths
+        : roots.map((root) => root.path),
+    );
     const scrollTop = this.contentEl.scrollTop;
     this.contentEl.empty();
     this.contentEl.addClass("link-tree");
     this.renderHeader();
 
-    if (root === null) {
+    if (roots.length === 0 && !this.plugin.hasConfiguredRoots) {
       this.contentEl.createDiv({
         cls: "link-tree-empty",
         text: "Open a note to browse its links.",
@@ -53,39 +57,33 @@ export class LinkTreeView extends ItemView {
       return;
     }
 
-    const rootEl = this.contentEl.createDiv({ cls: "link-tree-root" });
-    this.renderFileLabel(rootEl, root, "file", false);
-
-    if (this.plugin.settings.showOutgoingLinks) {
-      this.renderBranch(
-        root,
-        "outgoing",
-        "Links from this note",
-        "corner-down-right",
-      );
+    if (roots.length === 0) {
+      this.contentEl.createDiv({
+        cls: "link-tree-empty",
+        text: "The configured root notes could not be found.",
+      });
     }
-    if (this.plugin.settings.showBacklinks) {
-      this.renderBranch(
-        root,
-        "backlinks",
-        "Backlinks to this note",
-        "corner-up-left",
-      );
+
+    for (const root of roots) {
+      this.renderRoot(root);
+    }
+
+    if (this.plugin.hasConfiguredRoots) {
+      this.renderUnlinkedSection(roots);
     }
 
     this.contentEl.scrollTop = scrollTop;
   }
 
-  private resolveRoot(): TFile | null {
-    const configuredRoot = this.plugin.rootFile;
-    if (configuredRoot !== null) {
-      this.hadConfiguredRoot = true;
-      this.displayedRootPath = configuredRoot.path;
-      return configuredRoot;
+  private resolveRoots(): TFile[] {
+    if (this.plugin.hasConfiguredRoots) {
+      this.hadConfiguredRoots = true;
+      this.displayedRootPath = null;
+      return this.plugin.rootFiles;
     }
 
-    if (this.hadConfiguredRoot) {
-      this.hadConfiguredRoot = false;
+    if (this.hadConfiguredRoots) {
+      this.hadConfiguredRoots = false;
       this.displayedRootPath = null;
     }
 
@@ -93,14 +91,19 @@ export class LinkTreeView extends ItemView {
       const displayedRoot = this.app.vault.getAbstractFileByPath(
         this.displayedRootPath,
       );
-      if (displayedRoot instanceof TFile) {
-        return displayedRoot;
+      if (displayedRoot instanceof TFile && displayedRoot.extension === "md") {
+        return [displayedRoot];
       }
     }
 
     const activeFile = this.plugin.getActiveFile();
-    this.displayedRootPath = activeFile?.path ?? null;
-    return activeFile;
+    if (activeFile?.extension !== "md") {
+      this.displayedRootPath = null;
+      return [];
+    }
+
+    this.displayedRootPath = activeFile.path;
+    return [activeFile];
   }
 
   private renderHeader(): void {
@@ -111,17 +114,54 @@ export class LinkTreeView extends ItemView {
     this.createAction(actions, "refresh-cw", "Refresh tree", () =>
       this.refresh(),
     );
-    if (this.plugin.rootFile === null && this.plugin.getActiveFile() !== null) {
-      this.createAction(actions, "pin", "Set current note as root", () => {
-        const activeFile = this.plugin.getActiveFile();
-        if (activeFile !== null) {
-          void this.plugin.setRootFile(activeFile);
-        }
+    const activeFile = this.plugin.getActiveFile();
+    if (
+      activeFile?.extension === "md" &&
+      !this.plugin.settings.rootNotePaths.includes(activeFile.path)
+    ) {
+      this.createAction(actions, "pin", "Add current note as root", () => {
+        void this.plugin.addRootFile(activeFile);
       });
-    } else if (this.plugin.rootFile !== null) {
-      this.createAction(actions, "pin-off", "Clear root note", () => {
-        void this.plugin.clearRootFile();
+    }
+    if (this.plugin.hasConfiguredRoots) {
+      this.createAction(actions, "pin-off", "Clear all root notes", () => {
+        void this.plugin.clearRootFiles();
       });
+    }
+  }
+
+  private renderRoot(root: TFile): void {
+    const rootNode = this.contentEl.createDiv({ cls: "link-tree-root-node" });
+    const rootEl = rootNode.createDiv({ cls: "link-tree-root" });
+    this.renderFileLabel(rootEl, root, "file", true);
+    if (this.plugin.hasConfiguredRoots) {
+      this.createAction(
+        rootEl,
+        "x",
+        `Remove ${root.basename} from roots`,
+        () => {
+          void this.plugin.removeRootFile(root.path);
+        },
+      );
+    }
+
+    if (this.plugin.settings.showOutgoingLinks) {
+      this.renderBranch(
+        rootNode,
+        root,
+        "outgoing",
+        "Links from this note",
+        "corner-down-right",
+      );
+    }
+    if (this.plugin.settings.showBacklinks) {
+      this.renderBranch(
+        rootNode,
+        root,
+        "backlinks",
+        "Backlinks to this note",
+        "corner-up-left",
+      );
     }
   }
 
@@ -140,16 +180,18 @@ export class LinkTreeView extends ItemView {
   }
 
   private renderBranch(
+    container: HTMLElement,
     root: TFile,
     direction: LinkTreeDirection,
     label: string,
     icon: string,
   ): void {
-    const branch = this.contentEl.createDiv({ cls: "link-tree-branch" });
+    const branchKey = JSON.stringify(["root", root.path, direction]);
+    const branch = container.createDiv({ cls: "link-tree-branch" });
     const details = branch.createEl("details");
-    details.open = this.expansionState.isBranchExpanded(direction);
+    details.open = this.expansionState.isBranchExpanded(branchKey);
     details.addEventListener("toggle", () => {
-      this.expansionState.setBranchExpanded(direction, details.open);
+      this.expansionState.setBranchExpanded(branchKey, details.open);
     });
     const summary = details.createEl("summary", {
       cls: "link-tree-branch-label",
@@ -165,6 +207,53 @@ export class LinkTreeView extends ItemView {
       direction,
       file: root,
     });
+  }
+
+  private renderUnlinkedSection(roots: readonly TFile[]): void {
+    const files = this.plugin.getUnlinkedFiles(roots);
+    const branchKey = "unlinked";
+    const branch = this.contentEl.createDiv({
+      cls: "link-tree-branch link-tree-unlinked",
+    });
+    const details = branch.createEl("details");
+    details.open = this.expansionState.isBranchExpanded(branchKey, false);
+
+    const summary = details.createEl("summary", {
+      cls: "link-tree-branch-label",
+    });
+    const iconEl = summary.createSpan({ cls: "link-tree-icon" });
+    setIcon(iconEl, "unlink");
+    summary.createSpan({ text: `Unlinked notes (${files.length})` });
+
+    const children = details.createDiv({ cls: "link-tree-children" });
+    if (details.open) {
+      this.renderUnlinkedFiles(children, files);
+    }
+
+    details.addEventListener("toggle", () => {
+      this.expansionState.setBranchExpanded(branchKey, details.open);
+      if (details.open && children.childElementCount === 0) {
+        this.renderUnlinkedFiles(children, files);
+      }
+    });
+  }
+
+  private renderUnlinkedFiles(
+    container: HTMLElement,
+    files: readonly TFile[],
+  ): void {
+    if (files.length === 0) {
+      container.createDiv({
+        cls: "link-tree-empty",
+        text: "Every note is linked to a root.",
+      });
+      return;
+    }
+
+    for (const file of files) {
+      const row = container.createDiv({ cls: "link-tree-row" });
+      this.renderFileLabel(row, file, "file", true);
+    }
   }
 
   private renderChildren(container: HTMLElement, node: TreeNode): void {
