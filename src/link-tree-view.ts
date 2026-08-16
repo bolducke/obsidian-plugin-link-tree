@@ -275,7 +275,9 @@ export class LinkTreeView extends ItemView {
       const nested = container.createDiv({ cls: "link-tree-node" });
       const isCycle = node.ancestors.has(file.path);
       const canExpand =
-        !isCycle && node.depth + 1 < this.plugin.settings.maxDepth;
+        file.extension === "md" &&
+        !isCycle &&
+        node.depth + 1 < this.plugin.settings.maxDepth;
 
       if (canExpand) {
         this.renderExpandableNode(nested, file, displayName, node);
