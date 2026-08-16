@@ -279,13 +279,7 @@ export class LinkTreeView extends ItemView {
         (!isRecursive || node.recursionDepth < this.plugin.settings.maxDepth);
 
       if (canExpand) {
-        this.renderExpandableNode(
-          nested,
-          file,
-          displayName,
-          node,
-          isRecursive,
-        );
+        this.renderExpandableNode(nested, file, displayName, node, isRecursive);
       } else {
         const row = nested.createDiv({ cls: "link-tree-row" });
         this.renderFileLabel(
