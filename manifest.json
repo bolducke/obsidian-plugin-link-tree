@@ -1,7 +1,7 @@
 {
   "id": "link-tree",
   "name": "Link Tree",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "minAppVersion": "1.7.2",
   "description": "Browse notes through a filesystem-like hierarchy of links and backlinks.",
   "author": "bolducke",
