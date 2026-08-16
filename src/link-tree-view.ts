@@ -2,6 +2,7 @@ import { ItemView, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 
 import type LinkTreePlugin from "./main";
 import { RootNoteModal } from "./root-note-modal";
+import { RootNotesModal } from "./root-notes-modal";
 import { TreeExpansionState } from "./tree-expansion-state";
 import type { LinkTreeDirection, TreeNode } from "./types";
 
@@ -119,23 +120,9 @@ export class LinkTreeView extends ItemView {
         this.plugin.settings.rootNotePaths,
       ).open();
     });
-    this.createAction(actions, "refresh-cw", "Refresh tree", () =>
-      this.refresh(),
-    );
-    const activeFile = this.plugin.getActiveFile();
-    if (
-      activeFile?.extension === "md" &&
-      !this.plugin.settings.rootNotePaths.includes(activeFile.path)
-    ) {
-      this.createAction(actions, "pin", "Add current note as root", () => {
-        void this.plugin.addRootFile(activeFile);
-      });
-    }
-    if (this.plugin.hasConfiguredRoots) {
-      this.createAction(actions, "pin-off", "Clear all root notes", () => {
-        void this.plugin.clearRootFiles();
-      });
-    }
+    this.createAction(actions, "git-fork-plus", "Manage root notes", () => {
+      new RootNotesModal(this.app, this.plugin).open();
+    });
   }
 
   private renderRoot(root: TFile): void {

@@ -2,7 +2,7 @@
 
 Link Tree is an Obsidian community-plugin project that presents note links as a familiar, filesystem-like hierarchy in the left sidebar.
 
-The tree starts at the active note by default. You can add any number of persistent roots from the sidebar's search action, quickly pin the active note, or use the **Add current note as root** command. Each root has two expandable branches:
+The tree starts at the active note by default. You can add any number of persistent roots from the sidebar's search action, manage roots from the tree-with-plus action, or use the **Add current note as root** command. Each root has two expandable branches:
 
 - **Links from this note**: notes linked by the root note and their linked descendants.
 - **Backlinks to this note**: notes that link to the root note and their backlink descendants.
@@ -35,6 +35,7 @@ one source module:
 - `src/display-name.ts` — link display-text validation and filename fallback
 - `src/settings-model.ts` — persisted settings defaults and defensive loading
 - `src/root-note-modal.ts` — reusable root-note picker
+- `src/root-notes-modal.ts` — persistent-root management modal
 - `src/settings.ts` — settings UI
 - `src/link-graph.ts` — root-component traversal and unlinked-note detection
 - `src/link-tree-service.ts` — metadata queries and file ordering

@@ -116,3 +116,9 @@
   font-size: var(--font-ui-small);
   padding: 5px 10px;
 }
+
+.link-tree-modal-empty {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  padding: 0 var(--size-4-3) var(--size-4-4);
+}
