@@ -1,9 +1,9 @@
 {
   "id": "link-tree",
   "name": "Link Tree",
-  "version": "0.4.9",
+  "version": "0.5.0",
   "minAppVersion": "1.7.2",
-  "description": "Browse notes through a filesystem-like hierarchy of links and backlinks.",
+  "description": "Browse outgoing note links through a filesystem-like hierarchy.",
   "author": "bolducke",
   "isDesktopOnly": false
 }

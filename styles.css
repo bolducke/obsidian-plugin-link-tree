@@ -1,32 +1,8 @@
-.link-tree.nav-files-container {
-  padding: var(--size-4-1) var(--size-4-3) var(--size-4-4);
-}
-
-.link-tree .link-tree-root {
-  font-weight: var(--font-semibold);
-}
-
-.link-tree .link-tree-root > .clickable-icon {
-  flex: 0 0 auto;
-  margin-inline-start: auto;
-  opacity: 0;
-}
-
-.link-tree .link-tree-root:hover > .clickable-icon,
-.link-tree .link-tree-root:focus-within > .clickable-icon {
-  opacity: 1;
-}
-
-.link-tree .link-tree-root-node + .link-tree-root-node {
-  margin-top: var(--size-4-2);
-  padding-top: var(--size-4-2);
-  border-top: 1px solid var(--background-modifier-border);
-}
-
-.link-tree .link-tree-unlinked {
-  margin-top: var(--size-4-3);
-  padding-top: var(--size-4-2);
-  border-top: 1px solid var(--background-modifier-border);
+.workspace-leaf-content .view-content.link-tree {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
 }
 
 .link-tree details > summary {
@@ -37,51 +13,21 @@
   display: none;
 }
 
-.link-tree .link-tree-collapse-icon svg {
-  transition: transform 100ms ease;
+.link-tree .collapse-icon svg {
+  transition: none;
 }
 
-.link-tree details[open] > summary > .link-tree-collapse-icon svg {
-  transform: rotate(90deg);
+.link-tree .collapse-icon.link-tree-disclosure-ready svg {
+  transition: transform 0.1s ease-in-out;
 }
 
-.link-tree .link-tree-branch-icon,
 .link-tree .link-tree-recursive-icon {
-  display: inline-flex;
-  flex: 0 0 auto;
+  --icon-size: var(--icon-xs);
+
+  display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.link-tree .link-tree-branch-icon {
-  width: var(--size-4-4);
-  height: var(--size-4-4);
-  margin-inline-end: var(--size-4-1);
-  color: var(--text-muted);
-}
-
-.link-tree .link-tree-branch-icon svg,
-.link-tree .link-tree-recursive-icon svg {
-  width: var(--icon-xs);
-  height: var(--icon-xs);
-}
-
-.link-tree .link-tree-recursive-icon {
-  width: var(--size-4-4);
-  height: var(--size-4-4);
-  margin-inline-start: auto;
   color: var(--text-accent);
-}
-
-.link-tree .link-tree-file-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.link-tree .link-tree-clickable {
-  cursor: var(--cursor-link);
 }
 
 .link-tree .link-tree-empty {
@@ -103,10 +49,4 @@
 
 .link-tree-file-form > input {
   width: 100%;
-}
-
-.link-tree-modal-empty {
-  color: var(--text-muted);
-  font-size: var(--font-ui-small);
-  padding: 0 var(--size-4-3) var(--size-4-4);
 }

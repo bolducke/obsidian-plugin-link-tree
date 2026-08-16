@@ -12,14 +12,32 @@ import {
   WorkspaceLeaf,
 } from "obsidian";
 
+export interface RootMenuAction {
+  readonly kind: "add" | "remove";
+  readonly run: () => Promise<void>;
+}
+
 export function showFileContextMenu(
   app: App,
   leaf: WorkspaceLeaf,
   file: TFile,
   event: MouseEvent,
   openFromTree: (file: TFile, paneType: PaneType) => Promise<void>,
+  rootAction?: RootMenuAction,
 ): void {
   const menu = Menu.forEvent(event);
+
+  if (rootAction !== undefined) {
+    menu.addItem((item) =>
+      item
+        .setTitle(
+          rootAction.kind === "add" ? "Add to roots" : "Remove from roots",
+        )
+        .setIcon(rootAction.kind === "add" ? "pin" : "pin-off")
+        .onClick(() => void rootAction.run()),
+    );
+    menu.addSeparator();
+  }
 
   menu.addItem((item) =>
     item

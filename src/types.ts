@@ -8,7 +8,8 @@ export interface RelatedFile {
 }
 
 export interface TreeNode {
-  readonly ancestors: ReadonlySet<string>;
+  /** Ordered path to this node, retaining repeated files in recursive paths. */
+  readonly ancestorPaths: readonly string[];
   /** Number of repeated ancestors expanded on the current path. */
   readonly recursionDepth: number;
   readonly direction: LinkTreeDirection;

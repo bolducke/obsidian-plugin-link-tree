@@ -1,17 +1,20 @@
-import { ItemView, setIcon, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, Menu, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 
 import { showFileContextMenu } from "./file-context-menu";
 import type LinkTreePlugin from "./main";
 import { RootNoteModal } from "./root-note-modal";
-import { RootNotesModal } from "./root-notes-modal";
-import { TreeExpansionState } from "./tree-expansion-state";
+import type { LinkTreeSortOrder } from "./settings-model";
+import {
+  createNodeExpansionKey,
+  TreeExpansionState,
+} from "./tree-expansion-state";
 import type { LinkTreeDirection, TreeNode } from "./types";
 
 export class LinkTreeView extends ItemView {
   private displayedRootPath: string | null = null;
   private readonly expansionState = new TreeExpansionState();
   private hadConfiguredRoots = false;
-  private headerActionsInitialized = false;
+  private treeEl: HTMLElement | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -29,11 +32,10 @@ export class LinkTreeView extends ItemView {
   }
 
   getIcon(): string {
-    return "git-fork-plus";
+    return "git-branch";
   }
 
   async onOpen(): Promise<void> {
-    this.initializeHeaderActions();
     this.refresh();
   }
 
@@ -49,35 +51,40 @@ export class LinkTreeView extends ItemView {
         ? this.plugin.settings.rootNotePaths
         : roots.map((root) => root.path),
     );
-    const scrollTop = this.contentEl.scrollTop;
+    const scrollTop = this.treeEl?.scrollTop ?? 0;
     this.contentEl.empty();
     this.contentEl.addClass("link-tree");
-    this.contentEl.addClass("nav-files-container");
+    this.contentEl.removeClass("nav-files-container");
+    this.renderNavHeader(roots);
+    this.treeEl = this.contentEl.createDiv({
+      cls: "nav-files-container node-insert-event link-tree-files",
+    });
 
     if (roots.length === 0 && !this.plugin.hasConfiguredRoots) {
-      this.contentEl.createDiv({
+      this.treeEl.createDiv({
         cls: "link-tree-empty",
         text: "Open a note to browse its links.",
       });
+      this.treeEl.scrollTop = scrollTop;
       return;
     }
 
     if (roots.length === 0) {
-      this.contentEl.createDiv({
+      this.treeEl.createDiv({
         cls: "link-tree-empty",
         text: "The configured root notes could not be found.",
       });
     }
 
     for (const root of roots) {
-      this.renderRoot(root);
+      this.renderRoot(this.treeEl, root);
     }
 
     if (this.plugin.hasConfiguredRoots) {
-      this.renderUnlinkedSection(roots);
+      this.renderUnlinkedSection(this.treeEl, roots);
     }
 
-    this.contentEl.scrollTop = scrollTop;
+    this.treeEl.scrollTop = scrollTop;
   }
 
   private resolveRoots(): TFile[] {
@@ -111,128 +118,145 @@ export class LinkTreeView extends ItemView {
     return [activeFile];
   }
 
-  private initializeHeaderActions(): void {
-    if (this.headerActionsInitialized) {
-      return;
-    }
-    this.headerActionsInitialized = true;
+  private renderNavHeader(roots: readonly TFile[]): void {
+    const header = this.contentEl.createDiv({ cls: "nav-header" });
+    const actions = header.createDiv({ cls: "nav-buttons-container" });
 
-    this.addAction("search", "Add root note", () => {
+    this.createNavAction(actions, "git-branch-plus", "Add root note", () => {
       new RootNoteModal(
         this.app,
         (file) => this.plugin.addRootFile(file),
         this.plugin.settings.rootNotePaths,
       ).open();
     });
-    this.addAction("git-fork-plus", "Manage root notes", () => {
-      new RootNotesModal(this.app, this.plugin).open();
+    this.createNavAction(actions, "sort-asc", "Change sort order", (event) =>
+      this.showSortMenu(event),
+    );
+    const followAction = this.createNavAction(
+      actions,
+      "gallery-vertical",
+      "Follow active note",
+      () => {
+        void this.plugin.updateSettings({
+          followActiveNote: !this.plugin.settings.followActiveNote,
+        });
+      },
+    );
+    followAction.toggleClass(
+      "is-active",
+      this.plugin.settings.followActiveNote,
+    );
+    this.createNavAction(actions, "chevrons-down-up", "Collapse all", () => {
+      this.collapseAll(roots);
     });
-    this.addAction("refresh-cw", "Refresh tree", () => this.refresh());
   }
 
-  private renderRoot(root: TFile): void {
-    const rootNode = this.contentEl.createDiv({
-      cls: "tree-item nav-folder link-tree-root-node",
-    });
-    const rootEl = rootNode.createDiv({
-      cls: "tree-item-self is-clickable nav-file-title link-tree-root",
-      attr: { "data-path": root.path },
-    });
-    this.renderFileLabel(rootEl, root, root.basename, null, true);
-    if (this.plugin.hasConfiguredRoots) {
-      this.createAction(
-        rootEl,
-        "x",
-        `Remove ${root.basename} from roots`,
-        () => {
-          void this.plugin.removeRootFile(root.path);
-        },
-      );
-    }
-
-    const rootChildren = rootNode.createDiv({
-      cls: "tree-item-children nav-folder-children link-tree-root-children",
-    });
-    if (this.plugin.settings.showOutgoingLinks) {
-      this.renderBranch(
-        rootChildren,
-        root,
-        "outgoing",
-        "Links from this note",
-        "corner-down-right",
-      );
-    }
-    if (this.plugin.settings.showBacklinks) {
-      this.renderBranch(
-        rootChildren,
-        root,
-        "backlinks",
-        "Backlinks to this note",
-        "corner-up-left",
-      );
-    }
-  }
-
-  private createAction(
+  private createNavAction(
     container: HTMLElement,
     icon: string,
     label: string,
-    action: () => void,
-  ): void {
-    const button = container.createEl("button", {
-      cls: "clickable-icon",
+    action: (event: MouseEvent) => void,
+  ): HTMLElement {
+    const button = container.createDiv({
+      cls: "clickable-icon nav-action-button",
       attr: { "aria-label": label },
     });
     setIcon(button, icon);
     button.addEventListener("click", action);
+    return button;
   }
 
-  private renderBranch(
-    container: HTMLElement,
-    root: TFile,
-    direction: LinkTreeDirection,
-    label: string,
-    icon: string,
-  ): void {
-    const branchKey = JSON.stringify(["root", root.path, direction]);
-    const details = container.createEl("details", {
-      cls: "tree-item nav-folder link-tree-branch",
-    });
-    details.open = this.expansionState.isBranchExpanded(branchKey);
-    details.toggleClass("is-collapsed", !details.open);
-    details.addEventListener("toggle", () => {
-      this.expansionState.setBranchExpanded(branchKey, details.open);
-      details.toggleClass("is-collapsed", !details.open);
-    });
-    const summary = details.createEl("summary", {
-      cls: "tree-item-self is-clickable nav-folder-title link-tree-branch-label",
-    });
-    const collapseIcon = summary.createSpan({
-      cls: "tree-item-icon collapse-icon nav-folder-collapse-indicator link-tree-collapse-icon",
-    });
-    setIcon(collapseIcon, "chevron-right");
-    const directionIcon = summary.createSpan({ cls: "link-tree-branch-icon" });
-    setIcon(directionIcon, icon);
-    summary.createSpan({
-      cls: "tree-item-inner nav-folder-title-content",
-      text: label,
-    });
+  private showSortMenu(event: MouseEvent): void {
+    const menu = Menu.forEvent(event);
+    const options: readonly {
+      label: string;
+      value: LinkTreeSortOrder;
+    }[] = [
+      { label: "Link order (as written)", value: "link" },
+      { label: "File name (A to Z)", value: "name" },
+      {
+        label: "Modified time (new to old)",
+        value: "modified",
+      },
+      {
+        label: "Created time (new to old)",
+        value: "created",
+      },
+    ];
 
-    const children = details.createDiv({
-      cls: "tree-item-children nav-folder-children link-tree-children",
+    for (const option of options) {
+      menu.addItem((item) =>
+        item
+          .setTitle(option.label)
+          .setChecked(this.plugin.settings.sortOrder === option.value)
+          .onClick(() => {
+            void this.plugin.updateSettings({ sortOrder: option.value });
+          }),
+      );
+    }
+    menu.showAtMouseEvent(event);
+  }
+
+  private collapseAll(roots: readonly TFile[]): void {
+    const branchKeys = roots.map((root) => this.getBranchKey(root, "outgoing"));
+    if (this.plugin.hasConfiguredRoots) {
+      branchKeys.push("unlinked");
+    }
+
+    this.expansionState.collapseAll(branchKeys);
+    this.refresh();
+  }
+
+  private getBranchKey(root: TFile, direction: LinkTreeDirection): string {
+    return JSON.stringify(["root", root.path, direction]);
+  }
+
+  private renderRoot(container: HTMLElement, root: TFile): void {
+    const branchKey = this.getBranchKey(root, "outgoing");
+    const rootNode = container.createEl("details", {
+      cls: "tree-item nav-folder link-tree-root-node",
     });
-    this.renderChildren(children, {
-      ancestors: new Set([root.path]),
+    rootNode.open = this.expansionState.isBranchExpanded(branchKey);
+    rootNode.toggleClass("is-collapsed", !rootNode.open);
+
+    const rootEl = rootNode.createEl("summary", {
+      cls: "tree-item-self is-clickable nav-file-title link-tree-root",
+      attr: { "data-path": root.path },
+    });
+    const collapseIcon = this.renderFileLabel(
+      rootEl,
+      root,
+      root.basename,
+      "chevron-down",
+      true,
+    );
+    collapseIcon?.addClass("nav-folder-collapse-indicator");
+    this.prepareDisclosureIcon(collapseIcon, rootNode.open);
+
+    const rootChildren = rootNode.createDiv({
+      cls: "tree-item-children nav-folder-children link-tree-root-children",
+    });
+    this.renderChildren(rootChildren, {
+      ancestorPaths: [root.path],
       recursionDepth: 0,
-      direction,
+      direction: "outgoing",
       file: root,
     });
+
+    rootNode.addEventListener("toggle", () => {
+      this.expansionState.setBranchExpanded(branchKey, rootNode.open);
+      rootNode.toggleClass("is-collapsed", !rootNode.open);
+      collapseIcon?.toggleClass("is-collapsed", !rootNode.open);
+    });
   }
 
-  private renderUnlinkedSection(roots: readonly TFile[]): void {
+  private renderUnlinkedSection(
+    container: HTMLElement,
+    roots: readonly TFile[],
+  ): void {
     const files = this.plugin.getUnlinkedFiles(roots);
     const branchKey = "unlinked";
-    const details = this.contentEl.createEl("details", {
+    const details = container.createEl("details", {
       cls: "tree-item nav-folder link-tree-branch link-tree-unlinked",
     });
     details.open = this.expansionState.isBranchExpanded(branchKey, false);
@@ -242,11 +266,10 @@ export class LinkTreeView extends ItemView {
       cls: "tree-item-self is-clickable nav-folder-title link-tree-branch-label",
     });
     const collapseIcon = summary.createSpan({
-      cls: "tree-item-icon collapse-icon nav-folder-collapse-indicator link-tree-collapse-icon",
+      cls: "tree-item-icon collapse-icon nav-folder-collapse-indicator",
     });
-    setIcon(collapseIcon, "chevron-right");
-    const iconEl = summary.createSpan({ cls: "link-tree-branch-icon" });
-    setIcon(iconEl, "unlink");
+    setIcon(collapseIcon, "chevron-down");
+    this.prepareDisclosureIcon(collapseIcon, details.open);
     summary.createSpan({
       cls: "tree-item-inner nav-folder-title-content",
       text: `Unlinked notes (${files.length})`,
@@ -262,6 +285,7 @@ export class LinkTreeView extends ItemView {
     details.addEventListener("toggle", () => {
       this.expansionState.setBranchExpanded(branchKey, details.open);
       details.toggleClass("is-collapsed", !details.open);
+      collapseIcon.toggleClass("is-collapsed", !details.open);
       if (details.open && children.childElementCount === 0) {
         this.renderUnlinkedFiles(children, files);
       }
@@ -298,9 +322,10 @@ export class LinkTreeView extends ItemView {
     }
 
     for (const { displayName, file } of related) {
-      const isRecursive = node.ancestors.has(file.path);
+      const isRecursive = node.ancestorPaths.includes(file.path);
       const canExpand =
         file.extension === "md" &&
+        this.plugin.hasRelatedFiles(file, node.direction) &&
         (!isRecursive || node.recursionDepth < this.plugin.settings.maxDepth);
 
       if (canExpand) {
@@ -334,30 +359,33 @@ export class LinkTreeView extends ItemView {
     const details = container.createEl("details", {
       cls: "tree-item nav-file link-tree-node",
     });
+    const isExpanded = this.expansionState.isNodeExpanded(nodeKey);
+    details.open = isExpanded;
     const summary = details.createEl("summary", {
       cls: "tree-item-self is-clickable nav-file-title link-tree-row",
       attr: { "data-path": file.path },
     });
-    this.renderFileLabel(
+    const collapseIcon = this.renderFileLabel(
       summary,
       file,
       displayName,
-      "chevron-right",
+      "chevron-down",
       true,
       isRecursive,
     );
+    this.prepareDisclosureIcon(collapseIcon, isExpanded);
 
     const childContainer = details.createDiv({
       cls: "tree-item-children nav-folder-children link-tree-children",
     });
-    if (this.expansionState.isNodeExpanded(nodeKey)) {
-      details.open = true;
+    if (isExpanded) {
       this.renderNodeChildren(childContainer, file, parent, isRecursive);
     }
     details.toggleClass("is-collapsed", !details.open);
 
     details.addEventListener("toggle", () => {
       details.toggleClass("is-collapsed", !details.open);
+      collapseIcon?.toggleClass("is-collapsed", !details.open);
       if (details.open) {
         this.expansionState.setNodeExpanded(nodeKey, true);
         if (childContainer.childElementCount === 0) {
@@ -376,7 +404,7 @@ export class LinkTreeView extends ItemView {
     isRecursive: boolean,
   ): void {
     this.renderChildren(container, {
-      ancestors: new Set([...parent.ancestors, file.path]),
+      ancestorPaths: [...parent.ancestorPaths, file.path],
       recursionDepth: parent.recursionDepth + (isRecursive ? 1 : 0),
       direction: parent.direction,
       file,
@@ -384,7 +412,24 @@ export class LinkTreeView extends ItemView {
   }
 
   private getNodeKey(parent: TreeNode, filePath: string): string {
-    return JSON.stringify([parent.direction, ...parent.ancestors, filePath]);
+    return createNodeExpansionKey(
+      parent.direction,
+      parent.ancestorPaths,
+      filePath,
+    );
+  }
+
+  private prepareDisclosureIcon(icon: HTMLElement | null, open: boolean): void {
+    if (icon === null) {
+      return;
+    }
+
+    icon.toggleClass("is-collapsed", !open);
+    icon.ownerDocument.defaultView?.requestAnimationFrame(() => {
+      if (icon.isConnected) {
+        icon.addClass("link-tree-disclosure-ready");
+      }
+    });
   }
 
   private renderFileLabel(
@@ -394,10 +439,11 @@ export class LinkTreeView extends ItemView {
     icon: string | null,
     clickable: boolean,
     isRecursive = false,
-  ): void {
+  ): HTMLElement | null {
+    let iconEl: HTMLElement | null = null;
     if (icon !== null) {
-      const iconEl = container.createSpan({
-        cls: "tree-item-icon collapse-icon link-tree-collapse-icon",
+      iconEl = container.createSpan({
+        cls: "tree-item-icon collapse-icon",
       });
       setIcon(iconEl, icon);
     }
@@ -406,6 +452,13 @@ export class LinkTreeView extends ItemView {
       cls: "tree-item-inner nav-file-title-content link-tree-file-name",
       text: displayName,
     });
+    const extensionTag =
+      file.extension === "md"
+        ? null
+        : container.createDiv({
+            cls: "nav-file-tag",
+            text: file.extension,
+          });
     label.setAttribute("title", file.path);
     container.toggleClass(
       "is-active",
@@ -420,12 +473,24 @@ export class LinkTreeView extends ItemView {
         file,
         event,
         (target, paneType) => this.plugin.openFileFromTree(target, paneType),
+        file.extension === "md"
+          ? {
+              kind: this.plugin.settings.rootNotePaths.includes(file.path)
+                ? "remove"
+                : "add",
+              run: () =>
+                this.plugin.settings.rootNotePaths.includes(file.path)
+                  ? this.plugin.removeRootFile(file.path)
+                  : this.plugin.addRootFile(file),
+            }
+          : undefined,
       );
     });
 
     if (isRecursive) {
-      const recursiveIcon = container.createSpan({
-        cls: "link-tree-recursive-icon",
+      const flair = container.createSpan({ cls: "tree-item-flair-outer" });
+      const recursiveIcon = flair.createSpan({
+        cls: "tree-item-flair link-tree-recursive-icon",
         attr: {
           "aria-label": "Links to a note already on this branch",
           title: "Links to a note already on this branch",
@@ -434,7 +499,7 @@ export class LinkTreeView extends ItemView {
       setIcon(recursiveIcon, "repeat-2");
     }
     if (!clickable) {
-      return;
+      return iconEl;
     }
 
     label.addClass("link-tree-clickable");
@@ -443,5 +508,11 @@ export class LinkTreeView extends ItemView {
       event.stopPropagation();
       void this.plugin.openFileFromTree(file);
     });
+    extensionTag?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.plugin.openFileFromTree(file);
+    });
+    return iconEl;
   }
 }

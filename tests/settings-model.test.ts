@@ -25,17 +25,13 @@ describe("normalizeSettings", () => {
         followActiveNote: false,
         maxDepth: 5,
         rootNotePaths: ["Projects/Home.md", "Areas/Work.md"],
-        showBacklinks: false,
-        showOutgoingLinks: false,
-        sortOrder: "modified",
+        sortOrder: "link",
       }),
     ).toEqual({
       followActiveNote: false,
       maxDepth: 5,
       rootNotePaths: ["Projects/Home.md", "Areas/Work.md"],
-      showBacklinks: false,
-      showOutgoingLinks: false,
-      sortOrder: "modified",
+      sortOrder: "link",
     });
   });
 

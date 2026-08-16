@@ -1,11 +1,9 @@
-export type LinkTreeSortOrder = "name" | "modified" | "created";
+export type LinkTreeSortOrder = "link" | "name" | "modified" | "created";
 
 export interface LinkTreeSettings {
   followActiveNote: boolean;
   maxDepth: number;
   rootNotePaths: string[];
-  showBacklinks: boolean;
-  showOutgoingLinks: boolean;
   sortOrder: LinkTreeSortOrder;
 }
 
@@ -13,8 +11,6 @@ export const DEFAULT_SETTINGS: LinkTreeSettings = {
   followActiveNote: true,
   maxDepth: 3,
   rootNotePaths: [],
-  showBacklinks: true,
-  showOutgoingLinks: true,
   sortOrder: "name",
 };
 
@@ -35,14 +31,6 @@ export function normalizeSettings(value: unknown): LinkTreeSettings {
     ),
     maxDepth: readDepth(stored.maxDepth),
     rootNotePaths: readRootNotePaths(stored),
-    showBacklinks: readBoolean(
-      stored.showBacklinks,
-      DEFAULT_SETTINGS.showBacklinks,
-    ),
-    showOutgoingLinks: readBoolean(
-      stored.showOutgoingLinks,
-      DEFAULT_SETTINGS.showOutgoingLinks,
-    ),
     sortOrder: readSortOrder(stored.sortOrder),
   };
 }
@@ -82,7 +70,10 @@ function readRootNotePaths(stored: Record<string, unknown>): string[] {
 }
 
 function readSortOrder(value: unknown): LinkTreeSortOrder {
-  return value === "modified" || value === "created" || value === "name"
+  return value === "link" ||
+    value === "modified" ||
+    value === "created" ||
+    value === "name"
     ? value
     : DEFAULT_SETTINGS.sortOrder;
 }

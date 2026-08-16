@@ -33,7 +33,7 @@ export class LinkTreeService {
 
   getRelatedFiles(file: TFile, direction: LinkTreeDirection): RelatedFile[] {
     const resolvedLinks = this.app.metadataCache.resolvedLinks;
-    const relatedPaths =
+    let relatedPaths =
       direction === "outgoing"
         ? Object.keys(resolvedLinks[file.path] ?? {})
         : Object.keys(resolvedLinks).filter(
@@ -41,7 +41,13 @@ export class LinkTreeService {
               resolvedLinks[sourcePath]?.[file.path] !== undefined,
           );
 
-    return relatedPaths
+    const preserveLinkOrder =
+      direction === "outgoing" && this.getSettings().sortOrder === "link";
+    if (preserveLinkOrder) {
+      relatedPaths = this.orderOutgoingPathsByPosition(file, relatedPaths);
+    }
+
+    const relatedFiles = relatedPaths
       .map((path) => this.app.vault.getAbstractFileByPath(path))
       .filter((entry): entry is TFile => entry instanceof TFile)
       .map((relatedFile) => ({
@@ -50,8 +56,28 @@ export class LinkTreeService {
             ? this.getOutgoingDisplayName(file, relatedFile)
             : relatedFile.basename,
         file: relatedFile,
-      }))
-      .sort((left, right) => this.compareRelatedFiles(left, right));
+      }));
+
+    return preserveLinkOrder
+      ? relatedFiles
+      : relatedFiles.sort((left, right) =>
+          this.compareRelatedFiles(left, right),
+        );
+  }
+
+  hasRelatedFiles(file: TFile, direction: LinkTreeDirection): boolean {
+    const resolvedLinks = this.app.metadataCache.resolvedLinks;
+    const relatedPaths =
+      direction === "outgoing"
+        ? Object.keys(resolvedLinks[file.path] ?? {})
+        : Object.keys(resolvedLinks).filter(
+            (sourcePath) =>
+              resolvedLinks[sourcePath]?.[file.path] !== undefined,
+          );
+
+    return relatedPaths.some(
+      (path) => this.app.vault.getAbstractFileByPath(path) instanceof TFile,
+    );
   }
 
   getUnlinkedFiles(roots: readonly TFile[]): TFile[] {
@@ -78,12 +104,16 @@ export class LinkTreeService {
       case "created":
         return right.stat.ctime - left.stat.ctime || byPath();
       case "name":
+      case "link":
         return left.basename.localeCompare(right.basename) || byPath();
     }
   }
 
   private compareRelatedFiles(left: RelatedFile, right: RelatedFile): number {
-    if (this.getSettings().sortOrder === "name") {
+    if (
+      this.getSettings().sortOrder === "name" ||
+      this.getSettings().sortOrder === "link"
+    ) {
       return (
         left.displayName.localeCompare(right.displayName) ||
         left.file.path.localeCompare(right.file.path)
@@ -91,6 +121,43 @@ export class LinkTreeService {
     }
 
     return this.compareFiles(left.file, right.file);
+  }
+
+  private orderOutgoingPathsByPosition(
+    source: TFile,
+    resolvedPaths: readonly string[],
+  ): string[] {
+    const resolvedPathSet = new Set(resolvedPaths);
+    const orderedPaths: string[] = [];
+    const seen = new Set<string>();
+    const cache = this.app.metadataCache.getFileCache(source);
+    const references = [...(cache?.links ?? []), ...(cache?.embeds ?? [])].sort(
+      (left, right) => left.position.start.offset - right.position.start.offset,
+    );
+
+    for (const reference of references) {
+      const target = this.app.metadataCache.getFirstLinkpathDest(
+        reference.link,
+        source.path,
+      );
+      if (
+        target !== null &&
+        resolvedPathSet.has(target.path) &&
+        !seen.has(target.path)
+      ) {
+        seen.add(target.path);
+        orderedPaths.push(target.path);
+      }
+    }
+
+    // Resolved metadata can contain entries not represented by the current
+    // link cache during cache refreshes. Keep them visible and deterministic.
+    orderedPaths.push(
+      ...resolvedPaths
+        .filter((path) => !seen.has(path))
+        .sort((left, right) => left.localeCompare(right)),
+    );
+    return orderedPaths;
   }
 
   private getOutgoingDisplayName(source: TFile, target: TFile): string {

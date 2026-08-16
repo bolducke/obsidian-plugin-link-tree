@@ -2,14 +2,13 @@
 
 Link Tree is an Obsidian community-plugin project that presents note links as a familiar, filesystem-like hierarchy in the left sidebar.
 
-The tree starts at the active note by default. You can add any number of persistent roots from the sidebar's search action, manage roots from the tree-with-plus action, or use the **Add current note as root** command. Each root has two expandable branches:
-
-- **Links from this note**: notes linked by the root note and their linked descendants.
-- **Backlinks to this note**: notes that link to the root note and their backlink descendants.
+The tree starts at the active note by default. You can add any number of persistent roots from the sidebar's branch-with-plus action, use the **Add current note as root** command, or right-click any Markdown node and choose **Add to roots**. Right-click a configured root and choose **Remove from roots** to stop using it as a root without deleting the note. Each root has its own expand/collapse chevron and directly contains the notes it links to, followed by their outgoing-link descendants.
 
 Repeated paths can be expanded to inspect recursive links. A repeat icon marks every note that closes a loop to any earlier note on its current branch, including recursive notes that can still be expanded. **Maximum recursion depth** limits only those repeated paths, preventing an infinite expansion while allowing ordinary note hierarchies to remain fully explorable. Clicking a note opens it in the current workspace without retargeting or collapsing the tree. Right-clicking a note provides familiar file-explorer actions such as opening in another pane, renaming, moving, copying, and deleting. When **Follow active note** is enabled, notes opened outside the tree still become its new root.
 
-Outgoing note labels use the display text from aliased links such as `[[note|display name]]` and fall back to the filename for links without display text. Since a backlink's alias names its target rather than its source, backlink labels use the source filename.
+Note labels use the display text from aliased links such as `[[note|display name]]` and fall back to the filename for links without display text. Linked files that are not Markdown notes display Obsidian's native extension badge.
+
+Related notes can be sorted by their first appearance in the source note, filename, modified time, or created time.
 
 When persistent roots are configured, the collapsed **Unlinked notes** section lists Markdown notes outside every root's connected link component. Connectivity follows resolved links in either direction across the complete graph, regardless of the sidebar's maximum recursion depth.
 
@@ -35,7 +34,6 @@ one source module:
 - `src/display-name.ts` — link display-text validation and filename fallback
 - `src/settings-model.ts` — persisted settings defaults and defensive loading
 - `src/root-note-modal.ts` — reusable root-note picker
-- `src/root-notes-modal.ts` — persistent-root management modal
 - `src/settings.ts` — settings UI
 - `src/link-graph.ts` — root-component traversal and unlinked-note detection
 - `src/link-tree-service.ts` — metadata queries and file ordering
@@ -70,4 +68,4 @@ a version tag matching `manifest.json` (with or without a leading `v`).
 
 ## Current scope
 
-The plugin supplies the core browsing experience, a left-sidebar view, multiple persistent roots, an unlinked-notes section, refresh control, configurable recursion depth, independent toggles for outgoing links and backlinks, and configurable branch sorting. Future enhancements could add aliases/tags and drag-and-drop relationships.
+The plugin supplies the core browsing experience, a left-sidebar view, multiple persistent roots, outgoing-link traversal, an unlinked-notes section, refresh control, configurable recursion depth, and configurable branch sorting. Future enhancements could add aliases/tags and drag-and-drop relationships.

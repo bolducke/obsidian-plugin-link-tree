@@ -18,6 +18,7 @@ vi.mock("obsidian", () => ({
 import { TFile } from "obsidian";
 
 import { LinkTreeService } from "../src/link-tree-service";
+import type { LinkTreeSortOrder } from "../src/settings-model";
 
 describe("LinkTreeService link labels", () => {
   let files: Map<string, TFile>;
@@ -40,13 +41,19 @@ describe("LinkTreeService link labels", () => {
     resolvedLinks: Record<string, Record<string, number>>,
     linksBySource: Record<
       string,
-      { link: string; displayText?: string }[]
+      {
+        link: string;
+        displayText?: string;
+        position?: { start: { offset: number } };
+      }[]
     > = {},
+    sortOrder: LinkTreeSortOrder = "name",
   ): LinkTreeService {
     const app = {
       metadataCache: {
         getFileCache: (source: TFile) => ({
           links: linksBySource[source.path] ?? [],
+          embeds: [],
         }),
         getFirstLinkpathDest: (linkPath: string) =>
           [...files.values()].find(
@@ -64,9 +71,7 @@ describe("LinkTreeService link labels", () => {
       followActiveNote: true,
       maxDepth: 4,
       rootNotePaths: [],
-      showBacklinks: true,
-      showOutgoingLinks: true,
-      sortOrder: "name",
+      sortOrder,
     }));
   }
 
@@ -101,6 +106,22 @@ describe("LinkTreeService link labels", () => {
     ]);
   });
 
+  it("only treats resolved internal files as children", () => {
+    const leaf = file("Leaf.md");
+    const parent = file("Parent.md");
+    file("Child.md");
+    const tree = service(
+      { "Parent.md": { "Child.md": 1 } },
+      {
+        "Leaf.md": [{ link: "https://example.com" }],
+        "Parent.md": [{ link: "Child" }],
+      },
+    );
+
+    expect(tree.hasRelatedFiles(leaf, "outgoing")).toBe(false);
+    expect(tree.hasRelatedFiles(parent, "outgoing")).toBe(true);
+  });
+
   it("uses the source filename for backlinks", () => {
     const root = file("Root.md");
     const source = file("Source.md");
@@ -111,6 +132,28 @@ describe("LinkTreeService link labels", () => {
 
     expect(tree.getRelatedFiles(root, "backlinks")).toEqual([
       { displayName: "Source", file: source },
+    ]);
+  });
+
+  it("preserves the first occurrence of each outgoing link", () => {
+    const root = file("Root.md");
+    const alpha = file("Alpha.md");
+    const beta = file("Beta.md");
+    const tree = service(
+      { "Root.md": { "Alpha.md": 1, "Beta.md": 2 } },
+      {
+        "Root.md": [
+          { link: "Beta", position: { start: { offset: 5 } } },
+          { link: "Alpha", position: { start: { offset: 20 } } },
+          { link: "Beta", position: { start: { offset: 40 } } },
+        ],
+      },
+      "link",
+    );
+
+    expect(tree.getRelatedFiles(root, "outgoing")).toEqual([
+      { displayName: "Beta", file: beta },
+      { displayName: "Alpha", file: alpha },
     ]);
   });
 });

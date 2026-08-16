@@ -48,6 +48,7 @@ export class LinkTreeSettingTab extends PluginSettingTab {
       .setDesc("Choose how notes are ordered within each branch.")
       .addDropdown((dropdown) =>
         dropdown
+          .addOption("link", "Link order (as written)")
           .addOption("name", "File name (a–z)")
           .addOption("modified", "Modified time (newest first)")
           .addOption("created", "Created time (newest first)")
@@ -56,28 +57,6 @@ export class LinkTreeSettingTab extends PluginSettingTab {
             await this.plugin.updateSettings({
               sortOrder: value as LinkTreeSortOrder,
             });
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Show outgoing links")
-      .setDesc("Show notes linked from the selected note.")
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.showOutgoingLinks)
-          .onChange(async (value) => {
-            await this.plugin.updateSettings({ showOutgoingLinks: value });
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Show backlinks")
-      .setDesc("Show notes that link to the selected note.")
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.showBacklinks)
-          .onChange(async (value) => {
-            await this.plugin.updateSettings({ showBacklinks: value });
           }),
       );
   }

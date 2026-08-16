@@ -1,3 +1,13 @@
+import type { LinkTreeDirection } from "./types";
+
+export function createNodeExpansionKey(
+  direction: LinkTreeDirection,
+  ancestorPaths: readonly string[],
+  filePath: string,
+): string {
+  return JSON.stringify([direction, ...ancestorPaths, filePath]);
+}
+
 export class TreeExpansionState {
   private readonly branchStates = new Map<string, boolean>();
   private readonly expandedNodes = new Set<string>();
@@ -32,5 +42,12 @@ export class TreeExpansionState {
     } else {
       this.expandedNodes.delete(key);
     }
+  }
+
+  collapseAll(branchKeys: readonly string[]): void {
+    for (const key of branchKeys) {
+      this.branchStates.set(key, false);
+    }
+    this.expandedNodes.clear();
   }
 }

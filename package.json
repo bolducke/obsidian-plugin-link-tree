@@ -1,7 +1,7 @@
 {
   "name": "obsidian-link-tree",
-  "version": "0.4.9",
-  "description": "A filesystem-like link and backlink hierarchy for Obsidian.",
+  "version": "0.5.0",
+  "description": "A filesystem-like hierarchy of outgoing note links for Obsidian.",
   "main": "dist/link-tree/main.js",
   "private": true,
   "type": "module",
@@ -22,7 +22,6 @@
     "obsidian",
     "plugin",
     "links",
-    "backlinks",
     "navigation"
   ],
   "license": "MIT",

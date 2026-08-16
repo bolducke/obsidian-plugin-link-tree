@@ -29,7 +29,7 @@ export default class LinkTreePlugin extends Plugin {
     this.addSettingTab(new LinkTreeSettingTab(this.app, this));
 
     this.addRibbonIcon(
-      "git-fork-plus",
+      "git-branch-plus",
       "Open link tree",
       () => void this.activateView(),
     );
@@ -61,20 +61,6 @@ export default class LinkTreePlugin extends Plugin {
         return true;
       },
     });
-    this.addCommand({
-      id: "clear-root-note",
-      name: "Clear all root notes",
-      checkCallback: (checking) => {
-        if (!this.hasConfiguredRoots) {
-          return false;
-        }
-        if (!checking) {
-          void this.clearRootFiles();
-        }
-        return true;
-      },
-    });
-
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
         if (this.treeNavigation.consume(file?.path ?? null)) {
@@ -166,10 +152,6 @@ export default class LinkTreePlugin extends Plugin {
     });
   }
 
-  async clearRootFiles(): Promise<void> {
-    await this.updateSettings({ rootNotePaths: [] });
-  }
-
   async activateView(): Promise<void> {
     const leaf = this.app.workspace.getLeftLeaf(false);
     if (leaf === null) {
@@ -223,6 +205,10 @@ export default class LinkTreePlugin extends Plugin {
 
   getRelatedFiles(file: TFile, direction: LinkTreeDirection): RelatedFile[] {
     return this.treeService.getRelatedFiles(file, direction);
+  }
+
+  hasRelatedFiles(file: TFile, direction: LinkTreeDirection): boolean {
+    return this.treeService.hasRelatedFiles(file, direction);
   }
 
   getUnlinkedFiles(roots: readonly TFile[]): TFile[] {
