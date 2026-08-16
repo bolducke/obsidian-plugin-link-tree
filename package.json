@@ -1,6 +1,6 @@
 {
   "name": "obsidian-link-tree",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "A filesystem-like link and backlink hierarchy for Obsidian.",
   "main": "dist/link-tree/main.js",
   "private": true,
