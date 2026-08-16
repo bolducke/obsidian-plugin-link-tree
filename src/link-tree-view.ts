@@ -1,6 +1,7 @@
 import { ItemView, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 
 import type LinkTreePlugin from "./main";
+import { RootNoteModal } from "./root-note-modal";
 import { TreeExpansionState } from "./tree-expansion-state";
 import type { LinkTreeDirection, TreeNode } from "./types";
 
@@ -108,6 +109,11 @@ export class LinkTreeView extends ItemView {
     header.createSpan({ cls: "link-tree-title", text: "Link Tree" });
     const actions = header.createDiv({ cls: "link-tree-actions" });
 
+    this.createAction(actions, "search", "Choose root note", () => {
+      new RootNoteModal(this.app, (file) =>
+        this.plugin.setRootFile(file),
+      ).open();
+    });
     this.createAction(actions, "refresh-cw", "Refresh tree", () =>
       this.refresh(),
     );

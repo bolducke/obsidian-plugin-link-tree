@@ -1,10 +1,4 @@
-import {
-  App,
-  FuzzySuggestModal,
-  PluginSettingTab,
-  Setting,
-  TFile,
-} from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 
 import type LinkTreePlugin from "./main";
 import type { LinkTreeSortOrder } from "./settings-model";
@@ -20,32 +14,6 @@ export class LinkTreeSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-
-    new Setting(containerEl)
-      .setName("Root note")
-      .setDesc(
-        this.plugin.rootFile === null
-          ? "No root is set. The tree follows the active note."
-          : `Current root: ${this.plugin.rootFile.path}`,
-      )
-      .addButton((button) =>
-        button.setButtonText("Choose note").onClick(() => {
-          new RootNoteModal(this.app, async (file) => {
-            await this.plugin.setRootFile(file);
-            this.display();
-          }).open();
-        }),
-      )
-      .addExtraButton((button) =>
-        button
-          .setIcon("x")
-          .setTooltip("Clear root note")
-          .setDisabled(this.plugin.rootFile === null)
-          .onClick(async () => {
-            await this.plugin.clearRootFile();
-            this.display();
-          }),
-      );
 
     new Setting(containerEl)
       .setName("Follow active note")
@@ -110,27 +78,5 @@ export class LinkTreeSettingTab extends PluginSettingTab {
             await this.plugin.updateSettings({ showBacklinks: value });
           }),
       );
-  }
-}
-
-class RootNoteModal extends FuzzySuggestModal<TFile> {
-  constructor(
-    app: App,
-    private readonly onChoose: (file: TFile) => Promise<void>,
-  ) {
-    super(app);
-    this.setPlaceholder("Choose a root note");
-  }
-
-  getItems(): TFile[] {
-    return this.app.vault.getMarkdownFiles();
-  }
-
-  getItemText(file: TFile): string {
-    return file.path;
-  }
-
-  onChooseItem(file: TFile): void {
-    void this.onChoose(file);
   }
 }
