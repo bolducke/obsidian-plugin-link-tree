@@ -7,7 +7,7 @@ The tree starts at the active note by default. You can choose any note as a pers
 - **Links from this note**: notes linked by the root note and their linked descendants.
 - **Backlinks to this note**: notes that link to the root note and their backlink descendants.
 
-Repeated paths are detected and marked instead of being expanded forever. Clicking a note opens it in the current workspace.
+Repeated paths are detected and marked instead of being expanded forever. Clicking a note opens it in the current workspace without retargeting or collapsing the tree. When **Follow active note** is enabled, notes opened outside the tree still become its new root.
 
 ## Development
 

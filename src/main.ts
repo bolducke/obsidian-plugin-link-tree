@@ -8,6 +8,7 @@ import {
   type LinkTreeSettings,
 } from "./settings-model";
 import { LinkTreeSettingTab } from "./settings";
+import { TreeNavigationTracker } from "./tree-navigation-tracker";
 import type { LinkTreeDirection } from "./types";
 
 export const VIEW_TYPE_LINK_TREE = "link-tree-view";
@@ -15,6 +16,7 @@ export const VIEW_TYPE_LINK_TREE = "link-tree-view";
 export default class LinkTreePlugin extends Plugin {
   settings: LinkTreeSettings = DEFAULT_SETTINGS;
   private treeService!: LinkTreeService;
+  private readonly treeNavigation = new TreeNavigationTracker();
 
   async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
@@ -70,9 +72,17 @@ export default class LinkTreePlugin extends Plugin {
     });
 
     this.registerEvent(
-      this.app.workspace.on("file-open", () => {
-        if (this.settings.followActiveNote) {
-          this.refreshViews();
+      this.app.workspace.on("file-open", (file) => {
+        if (this.treeNavigation.consume(file?.path ?? null)) {
+          return;
+        }
+
+        if (
+          file !== null &&
+          this.rootFile === null &&
+          this.settings.followActiveNote
+        ) {
+          this.followFileInViews(file);
         }
       }),
     );
@@ -127,6 +137,16 @@ export default class LinkTreePlugin extends Plugin {
     await this.app.workspace.revealLeaf(leaf);
   }
 
+  async openFileFromTree(file: TFile): Promise<void> {
+    const token = this.treeNavigation.begin(file.path);
+
+    try {
+      await this.app.workspace.getLeaf().openFile(file);
+    } finally {
+      this.treeNavigation.finish(token);
+    }
+  }
+
   refreshViews(): void {
     for (const leaf of this.app.workspace.getLeavesOfType(
       VIEW_TYPE_LINK_TREE,
@@ -134,6 +154,17 @@ export default class LinkTreePlugin extends Plugin {
       const view = leaf.view;
       if (view instanceof LinkTreeView) {
         view.refresh();
+      }
+    }
+  }
+
+  private followFileInViews(file: TFile): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(
+      VIEW_TYPE_LINK_TREE,
+    )) {
+      const view = leaf.view;
+      if (view instanceof LinkTreeView) {
+        view.followFile(file);
       }
     }
   }

@@ -1,9 +1,14 @@
 import { ItemView, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 
 import type LinkTreePlugin from "./main";
+import { TreeExpansionState } from "./tree-expansion-state";
 import type { LinkTreeDirection, TreeNode } from "./types";
 
 export class LinkTreeView extends ItemView {
+  private displayedRootPath: string | null = null;
+  private readonly expansionState = new TreeExpansionState();
+  private hadConfiguredRoot = false;
+
   constructor(
     leaf: WorkspaceLeaf,
     private readonly plugin: LinkTreePlugin,
@@ -27,8 +32,15 @@ export class LinkTreeView extends ItemView {
     this.refresh();
   }
 
+  followFile(file: TFile): void {
+    this.displayedRootPath = file.path;
+    this.refresh();
+  }
+
   refresh(): void {
-    const root = this.plugin.rootFile ?? this.plugin.getActiveFile();
+    const root = this.resolveRoot();
+    this.expansionState.prepareForRoot(root?.path ?? null);
+    const scrollTop = this.contentEl.scrollTop;
     this.contentEl.empty();
     this.contentEl.addClass("link-tree");
     this.renderHeader();
@@ -60,6 +72,35 @@ export class LinkTreeView extends ItemView {
         "corner-up-left",
       );
     }
+
+    this.contentEl.scrollTop = scrollTop;
+  }
+
+  private resolveRoot(): TFile | null {
+    const configuredRoot = this.plugin.rootFile;
+    if (configuredRoot !== null) {
+      this.hadConfiguredRoot = true;
+      this.displayedRootPath = configuredRoot.path;
+      return configuredRoot;
+    }
+
+    if (this.hadConfiguredRoot) {
+      this.hadConfiguredRoot = false;
+      this.displayedRootPath = null;
+    }
+
+    if (this.displayedRootPath !== null) {
+      const displayedRoot = this.app.vault.getAbstractFileByPath(
+        this.displayedRootPath,
+      );
+      if (displayedRoot instanceof TFile) {
+        return displayedRoot;
+      }
+    }
+
+    const activeFile = this.plugin.getActiveFile();
+    this.displayedRootPath = activeFile?.path ?? null;
+    return activeFile;
   }
 
   private renderHeader(): void {
@@ -105,7 +146,11 @@ export class LinkTreeView extends ItemView {
     icon: string,
   ): void {
     const branch = this.contentEl.createDiv({ cls: "link-tree-branch" });
-    const details = branch.createEl("details", { attr: { open: "" } });
+    const details = branch.createEl("details");
+    details.open = this.expansionState.isBranchExpanded(direction);
+    details.addEventListener("toggle", () => {
+      this.expansionState.setBranchExpanded(direction, details.open);
+    });
     const summary = details.createEl("summary", {
       cls: "link-tree-branch-label",
     });
@@ -149,21 +194,44 @@ export class LinkTreeView extends ItemView {
     file: TFile,
     parent: TreeNode,
   ): void {
+    const nodeKey = this.getNodeKey(parent, file.path);
     const details = container.createEl("details");
     const summary = details.createEl("summary", { cls: "link-tree-row" });
     this.renderFileLabel(summary, file, "chevron-right", true);
 
     const childContainer = details.createDiv({ cls: "link-tree-children" });
+    if (this.expansionState.isNodeExpanded(nodeKey)) {
+      details.open = true;
+      this.renderNodeChildren(childContainer, file, parent);
+    }
+
     details.addEventListener("toggle", () => {
-      if (details.open && childContainer.childElementCount === 0) {
-        this.renderChildren(childContainer, {
-          ancestors: new Set([...parent.ancestors, file.path]),
-          depth: parent.depth + 1,
-          direction: parent.direction,
-          file,
-        });
+      if (details.open) {
+        this.expansionState.setNodeExpanded(nodeKey, true);
+        if (childContainer.childElementCount === 0) {
+          this.renderNodeChildren(childContainer, file, parent);
+        }
+      } else {
+        this.expansionState.setNodeExpanded(nodeKey, false);
       }
     });
+  }
+
+  private renderNodeChildren(
+    container: HTMLElement,
+    file: TFile,
+    parent: TreeNode,
+  ): void {
+    this.renderChildren(container, {
+      ancestors: new Set([...parent.ancestors, file.path]),
+      depth: parent.depth + 1,
+      direction: parent.direction,
+      file,
+    });
+  }
+
+  private getNodeKey(parent: TreeNode, filePath: string): string {
+    return JSON.stringify([parent.direction, ...parent.ancestors, filePath]);
   }
 
   private renderFileLabel(
@@ -188,7 +256,7 @@ export class LinkTreeView extends ItemView {
     label.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      void this.app.workspace.getLeaf().openFile(file);
+      void this.plugin.openFileFromTree(file);
     });
   }
 }
