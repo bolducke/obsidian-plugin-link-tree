@@ -1,10 +1,4 @@
-import {
-  App,
-  FuzzySuggestModal,
-  PluginSettingTab,
-  Setting,
-  TFile,
-} from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 
 import type LinkTreePlugin from "./main";
 import type { LinkTreeSortOrder } from "./settings-model";
@@ -20,55 +14,6 @@ export class LinkTreeSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-
-    new Setting(containerEl)
-      .setName("Root notes")
-      .setDesc(
-        this.plugin.hasConfiguredRoots
-          ? "Each selected note is shown as a separate root."
-          : "No roots are set. The tree follows the active note.",
-      )
-      .addButton((button) =>
-        button.setButtonText("Add note").onClick(() => {
-          new RootNoteModal(
-            this.app,
-            async (file) => {
-              await this.plugin.addRootFile(file);
-              this.display();
-            },
-            this.plugin.settings.rootNotePaths,
-          ).open();
-        }),
-      )
-      .addExtraButton((button) =>
-        button
-          .setIcon("x")
-          .setTooltip("Clear all root notes")
-          .setDisabled(!this.plugin.hasConfiguredRoots)
-          .onClick(async () => {
-            await this.plugin.clearRootFiles();
-            this.display();
-          }),
-      );
-
-    const rootFilesByPath = new Map(
-      this.plugin.rootFiles.map((file) => [file.path, file]),
-    );
-    for (const path of this.plugin.settings.rootNotePaths) {
-      const file = rootFilesByPath.get(path);
-      new Setting(containerEl)
-        .setName(file?.basename ?? "Missing note")
-        .setDesc(path)
-        .addExtraButton((button) =>
-          button
-            .setIcon("trash-2")
-            .setTooltip("Remove root note")
-            .onClick(async () => {
-              await this.plugin.removeRootFile(path);
-              this.display();
-            }),
-        );
-    }
 
     new Setting(containerEl)
       .setName("Follow active note")
@@ -133,31 +78,5 @@ export class LinkTreeSettingTab extends PluginSettingTab {
             await this.plugin.updateSettings({ showBacklinks: value });
           }),
       );
-  }
-}
-
-class RootNoteModal extends FuzzySuggestModal<TFile> {
-  constructor(
-    app: App,
-    private readonly onChoose: (file: TFile) => Promise<void>,
-    private readonly excludedPaths: readonly string[],
-  ) {
-    super(app);
-    this.setPlaceholder("Choose a root note");
-  }
-
-  getItems(): TFile[] {
-    const excludedPaths = new Set(this.excludedPaths);
-    return this.app.vault
-      .getMarkdownFiles()
-      .filter((file) => !excludedPaths.has(file.path));
-  }
-
-  getItemText(file: TFile): string {
-    return file.path;
-  }
-
-  onChooseItem(file: TFile): void {
-    void this.onChoose(file);
   }
 }
